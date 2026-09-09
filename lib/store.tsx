@@ -91,6 +91,8 @@ const DEFAULT_TEAM_NAMES = [
   "Yuvajana Sakhyam",
   "Sunday School",
   "Edavaka Mission",
+  "Choir",
+  "Young Family Fellowship"
 ];
 
 function makeInitialState(): GameState {

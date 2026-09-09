@@ -22,7 +22,7 @@ export function TopBar() {
     <header className="sticky top-0 z-40 flex items-center justify-between gap-4 border-b border-white/10 bg-[#0b1120]/90 px-6 py-4 backdrop-blur sm:px-10">
       <div className="flex items-baseline gap-4">
         <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
-          Mar Thoma Church of South Florida Wisdom Across Generations: Where everyone of all ages comes together for a challenge of knowledge, wisdom, and wit.
+          Mar Thoma Church of South Florida.
         </h1>
         {context && (
           <span className="text-lg font-semibold text-indigo-300 sm:text-xl">
