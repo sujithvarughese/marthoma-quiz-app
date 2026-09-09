@@ -36,6 +36,7 @@ export type QuestionStatus = "direct" | "passed";
 
 /** Top-level screen the host is looking at. */
 export type ViewMode =
+  | "landing"
   | "home"
   | "board"
   | "question"

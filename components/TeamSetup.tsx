@@ -3,8 +3,12 @@
 import { MAX_TEAMS, useDispatch, useGame } from "@/lib/store";
 import { Button } from "./ui";
 
-/** Editable roster: rename, remove, and add teams (up to MAX_TEAMS). */
-export function TeamSetup() {
+/**
+ * Editable roster: rename, remove, and add teams (up to MAX_TEAMS).
+ * When `locked` (a game is in progress) teams can't be added or removed — the
+ * roster is fixed for the duration of the game.
+ */
+export function TeamSetup({ locked = false }: { locked?: boolean }) {
   const { teams } = useGame();
   const dispatch = useDispatch();
 
@@ -17,14 +21,20 @@ export function TeamSetup() {
             ({teams.length}/{MAX_TEAMS})
           </span>
         </h2>
-        <Button
-          variant="primary"
-          size="sm"
-          disabled={teams.length >= MAX_TEAMS}
-          onClick={() => dispatch({ type: "ADD_TEAM" })}
-        >
-          + Add team
-        </Button>
+        {locked ? (
+          <span className="text-sm font-semibold text-slate-400">
+            🔒 Locked during game
+          </span>
+        ) : (
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={teams.length >= MAX_TEAMS}
+            onClick={() => dispatch({ type: "ADD_TEAM" })}
+          >
+            + Add team
+          </Button>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -35,6 +45,7 @@ export function TeamSetup() {
             </span>
             <input
               value={team.name}
+              disabled={locked}
               onChange={(e) =>
                 dispatch({
                   type: "RENAME_TEAM",
@@ -43,16 +54,20 @@ export function TeamSetup() {
                 })
               }
               aria-label={`Team ${i + 1} name`}
-              className="flex-1 rounded-lg border border-white/15 bg-black/30 px-4 py-2 text-xl font-semibold text-white outline-none focus:border-indigo-400"
+              className="flex-1 rounded-lg border border-white/15 bg-black/30 px-4 py-2 text-xl font-semibold text-white outline-none focus:border-indigo-400 disabled:opacity-60"
             />
-            <Button
-              variant="danger"
-              size="sm"
-              aria-label={`Remove ${team.name}`}
-              onClick={() => dispatch({ type: "REMOVE_TEAM", teamId: team.id })}
-            >
-              ✕
-            </Button>
+            {!locked && (
+              <Button
+                variant="danger"
+                size="sm"
+                aria-label={`Remove ${team.name}`}
+                onClick={() =>
+                  dispatch({ type: "REMOVE_TEAM", teamId: team.id })
+                }
+              >
+                ✕
+              </Button>
+            )}
           </div>
         ))}
       </div>

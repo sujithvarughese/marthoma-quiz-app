@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Quiz Night",
-  description: "Live in-person church quiz night — host control screen",
+  title: "Mar Thoma Church of South Florida Quiz Time",
+  description: "Live in-person church trivia quiz — host control screen",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

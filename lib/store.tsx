@@ -2,13 +2,17 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useReducer,
+  useRef,
+  useState,
   type Dispatch,
   type ReactNode,
 } from "react";
 import type { Question, Round, Team, ViewMode } from "@/lib/types";
+import { type PersistedState } from "@/lib/persistence";
 import { rounds as roundsSeed } from "@/data/rounds";
 import { rapidFirePool as rapidFireSeed } from "@/data/rapidFire";
 import { tiebreakerPool as tiebreakerSeed } from "@/data/tiebreaker";
@@ -60,7 +64,9 @@ export interface GameState {
   rapidFirePool: Question[];
   tiebreakerPool: Question[];
   view: ViewMode;
-  showScoreboard: boolean;
+  /** True once a game has been started from the landing screen. While true the
+   *  team roster is locked and the landing offers a "Resume" option. */
+  gameStarted: boolean;
   activeRoundId: string | null;
   activeQuestion: ActiveQuestion | null;
   rapidFire: RapidFireState | null;
@@ -98,8 +104,8 @@ function makeInitialState(): GameState {
     rounds: clone(roundsSeed),
     rapidFirePool: clone(rapidFireSeed),
     tiebreakerPool: clone(tiebreakerSeed),
-    view: "home",
-    showScoreboard: false,
+    view: "landing",
+    gameStarted: false,
     activeRoundId: null,
     activeQuestion: null,
     rapidFire: null,
@@ -117,7 +123,6 @@ export type Action =
   | { type: "REMOVE_TEAM"; teamId: string }
   | { type: "RENAME_TEAM"; teamId: string; name: string }
   | { type: "AWARD"; teamId: string; amount: number }
-  | { type: "TOGGLE_SCOREBOARD" }
   | { type: "GO_HOME" }
   | { type: "OPEN_ROUND"; roundId: string }
   | { type: "REVEAL_QUESTION"; roundId: string; questionId: string }
@@ -134,7 +139,9 @@ export type Action =
   | { type: "TIEBREAKER_NEXT" }
   | { type: "RESET_QUESTIONS" }
   | { type: "RESET_SCORES" }
-  | { type: "RESET_GAME" };
+  | { type: "GO_LANDING" }
+  | { type: "START_GAME" }
+  | { type: "NEW_GAME" };
 
 function markUsed(pool: Question[], id: string): Question[] {
   return pool.map((q) => (q.id === id ? { ...q, used: true } : q));
@@ -183,9 +190,6 @@ function reducer(state: GameState, action: Action): GameState {
             : t,
         ),
       };
-
-    case "TOGGLE_SCOREBOARD":
-      return { ...state, showScoreboard: !state.showScoreboard };
 
     case "GO_HOME":
       return {
@@ -365,13 +369,34 @@ function reducer(state: GameState, action: Action): GameState {
         teams: state.teams.map((t) => ({ ...t, score: 0 })),
       };
 
-    case "RESET_GAME": {
+    case "GO_LANDING":
+      // Show the intro/menu (e.g. the gear "New game" during play). Does not
+      // reset anything — the landing offers Resume or New Game from there.
+      return { ...state, view: "landing" };
+
+    case "START_GAME":
+      // Begin play from the landing setup. Teams are now locked.
+      return {
+        ...state,
+        gameStarted: true,
+        view: "home",
+        activeRoundId: null,
+        activeQuestion: null,
+        rapidFire: null,
+        tiebreaker: null,
+      };
+
+    case "NEW_GAME": {
+      // Tear the current game down to a fresh setup: clear scores + question
+      // progress, unlock the roster, and stay on the landing so the host can
+      // adjust teams before starting again.
       const fresh = makeInitialState();
-      // Keep the team roster & names the host set up; reset scores + questions.
       return {
         ...fresh,
         teams: state.teams.map((t) => ({ ...t, score: 0 })),
         teamSeq: state.teamSeq,
+        view: "landing",
+        gameStarted: false,
       };
     }
 
@@ -384,7 +409,11 @@ function reducer(state: GameState, action: Action): GameState {
  * Persistence — only the durable game data, not transient view state.
  * ------------------------------------------------------------------ */
 
+// Firestore (via /api/state) is the source of truth; localStorage is an
+// offline cache so a brief network blip never loses the game.
 const STORAGE_KEY = "church-quiz-app:v2";
+const HOST_CODE_KEY = "church-quiz-app:hostCode";
+const SAVE_DEBOUNCE_MS = 700;
 
 /**
  * We persist only teams and the set of *used* question ids — never the question
@@ -392,11 +421,6 @@ const STORAGE_KEY = "church-quiz-app:v2";
  * /data take effect on reload while an in-progress event keeps its scores and
  * which cards have been played. Stale ids (from removed questions) are ignored.
  */
-interface PersistedShape {
-  teams: Team[];
-  teamSeq: number;
-  usedIds: string[];
-}
 
 /** Collect every used question id across rounds and the two pools. */
 function collectUsedIds(
@@ -417,26 +441,53 @@ function applyUsed<T extends Question>(pool: T[], used: Set<string>): T[] {
   return pool.map((q) => (used.has(q.id) ? { ...q, used: true } : q));
 }
 
-function loadPersisted(base: GameState): GameState {
-  if (typeof window === "undefined") return base;
+/** Reduce full game state down to the durable slice we persist. */
+function snapshot(state: GameState): PersistedState {
+  return {
+    teams: state.teams,
+    teamSeq: state.teamSeq,
+    gameStarted: state.gameStarted,
+    usedIds: collectUsedIds(
+      state.rounds,
+      state.rapidFirePool,
+      state.tiebreakerPool,
+    ),
+  };
+}
+
+/** Rebuild full game state from a persisted slice over the seed data. */
+function applyPersisted(base: GameState, saved: PersistedState): GameState {
+  const used = new Set(saved.usedIds);
+  return {
+    ...base,
+    teams: saved.teams.length ? saved.teams : base.teams,
+    teamSeq: saved.teamSeq,
+    gameStarted: saved.gameStarted ?? false,
+    rounds: base.rounds.map((r) => ({
+      ...r,
+      questions: applyUsed(r.questions, used),
+    })),
+    rapidFirePool: applyUsed(base.rapidFirePool, used),
+    tiebreakerPool: applyUsed(base.tiebreakerPool, used),
+  };
+}
+
+function loadLocal(): PersistedState | null {
+  if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return base;
-    const saved = JSON.parse(raw) as Partial<PersistedShape>;
-    const used = new Set(saved.usedIds ?? []);
-    return {
-      ...base,
-      teams: saved.teams ?? base.teams,
-      teamSeq: saved.teamSeq ?? base.teamSeq,
-      rounds: base.rounds.map((r) => ({
-        ...r,
-        questions: applyUsed(r.questions, used),
-      })),
-      rapidFirePool: applyUsed(base.rapidFirePool, used),
-      tiebreakerPool: applyUsed(base.tiebreakerPool, used),
-    };
+    return raw ? (JSON.parse(raw) as PersistedState) : null;
   } catch {
-    return base;
+    return null;
+  }
+}
+
+function saveLocal(snap: PersistedState): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snap));
+  } catch {
+    /* storage full / disabled — server save still covers us */
   }
 }
 
@@ -444,52 +495,195 @@ function loadPersisted(base: GameState): GameState {
  * Context + provider + hook
  * ------------------------------------------------------------------ */
 
+/**
+ * Sync state exposed to the UI (a small indicator in the top bar).
+ *   loading  — fetching the saved game from the server
+ *   saving   — a change is queued / being written
+ *   saved    — successfully persisted to Firestore
+ *   offline  — server unreachable; running on the local cache only
+ *   locked   — server requires a host access code we don't have
+ *   disabled — Firestore isn't configured on the server (local cache only)
+ */
+export type SyncStatus =
+  | "loading"
+  | "saving"
+  | "saved"
+  | "offline"
+  | "locked"
+  | "disabled";
+
+interface SyncApi {
+  status: SyncStatus;
+  lastSavedAt: number | null;
+  /** Store (or clear) the host access code and retry the last save. */
+  setHostCode: (code: string) => void;
+  /** Force an immediate save/retry, bypassing the debounce. */
+  saveNow: () => void;
+}
+
 const StateContext = createContext<GameState | null>(null);
 const DispatchContext = createContext<Dispatch<Action> | null>(null);
+const SyncContext = createContext<SyncApi | null>(null);
 
 export function GameProvider({ children }: { children: ReactNode }) {
-  // Lazy init keeps SSR output === first client render (empty base), then we
-  // hydrate from localStorage in an effect to avoid a hydration mismatch.
+  // Lazy init keeps SSR output === first client render, then we hydrate from
+  // the cache/server in effects to avoid a hydration mismatch.
   const [state, dispatch] = useReducer(reducer, undefined, makeInitialState);
 
-  // Hydrate from localStorage once, on the client.
-  useEffect(() => {
-    const persisted = loadPersisted(makeInitialState());
-    dispatch({ type: "HYDRATE", state: persisted });
+  const [status, setStatus] = useState<SyncStatus>("loading");
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+
+  const hydratedRef = useRef(false); // block saves until initial load finishes
+  const serverDisabledRef = useRef(false); // Firestore not configured
+  const saveTimer = useRef<number | null>(null);
+  const latestSnapshot = useRef<PersistedState | null>(null);
+
+  // Push a snapshot to the server (localStorage is written separately, first).
+  const doSave = useCallback(async (snap: PersistedState) => {
+    if (serverDisabledRef.current) {
+      setStatus("disabled");
+      return;
+    }
+    try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      const code =
+        typeof window !== "undefined"
+          ? window.localStorage.getItem(HOST_CODE_KEY)
+          : null;
+      if (code) headers["x-host-code"] = code;
+
+      const res = await fetch("/api/state", {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(snap),
+      });
+      if (res.status === 503) {
+        serverDisabledRef.current = true;
+        setStatus("disabled");
+        return;
+      }
+      if (res.status === 401) {
+        setStatus("locked");
+        return;
+      }
+      if (!res.ok) throw new Error(`save failed: ${res.status}`);
+      setStatus("saved");
+      setLastSavedAt(Date.now());
+    } catch {
+      setStatus("offline");
+    }
   }, []);
 
-  // Persist durable data whenever it changes.
+  // Initial hydrate: local cache first (instant), then the server (authoritative).
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const toSave: PersistedShape = {
-      teams: state.teams,
-      teamSeq: state.teamSeq,
-      usedIds: collectUsedIds(
-        state.rounds,
-        state.rapidFirePool,
-        state.tiebreakerPool,
-      ),
-    };
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
-    } catch {
-      /* storage full / disabled — ignore, game still works in-memory */
+    let cancelled = false;
+
+    const local = loadLocal();
+    if (local) {
+      dispatch({
+        type: "HYDRATE",
+        state: applyPersisted(makeInitialState(), local),
+      });
     }
+
+    (async () => {
+      try {
+        const res = await fetch("/api/state", { cache: "no-store" });
+        if (res.status === 503) {
+          serverDisabledRef.current = true;
+          if (!cancelled) setStatus("disabled");
+          return;
+        }
+        if (!res.ok) throw new Error(`load failed: ${res.status}`);
+        const data = (await res.json()) as { state: PersistedState | null };
+        if (!cancelled && data.state) {
+          dispatch({
+            type: "HYDRATE",
+            state: applyPersisted(makeInitialState(), data.state),
+          });
+        }
+        if (!cancelled) setStatus("saved");
+      } catch {
+        if (!cancelled) setStatus("offline");
+      } finally {
+        // Allow saves now — even offline, so the local cache keeps updating.
+        hydratedRef.current = true;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Persist durable data whenever it changes (local immediately, server debounced).
+  const { teams, teamSeq, rounds, rapidFirePool, tiebreakerPool, gameStarted } =
+    state;
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    const snap: PersistedState = {
+      teams,
+      teamSeq,
+      gameStarted,
+      usedIds: collectUsedIds(rounds, rapidFirePool, tiebreakerPool),
+    };
+    latestSnapshot.current = snap;
+    saveLocal(snap);
+
+    setStatus((s) => (s === "disabled" || s === "locked" ? s : "saving"));
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => {
+      void doSave(snap);
+    }, SAVE_DEBOUNCE_MS);
   }, [
-    state.teams,
-    state.teamSeq,
-    state.rounds,
-    state.rapidFirePool,
-    state.tiebreakerPool,
+    teams,
+    teamSeq,
+    rounds,
+    rapidFirePool,
+    tiebreakerPool,
+    gameStarted,
+    doSave,
   ]);
+
+  const saveNow = useCallback(() => {
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    void doSave(latestSnapshot.current ?? snapshot(state));
+  }, [doSave, state]);
+
+  const setHostCode = useCallback(
+    (code: string) => {
+      if (typeof window !== "undefined") {
+        if (code) window.localStorage.setItem(HOST_CODE_KEY, code);
+        else window.localStorage.removeItem(HOST_CODE_KEY);
+      }
+      serverDisabledRef.current = false;
+      void doSave(latestSnapshot.current ?? snapshot(state));
+    },
+    [doSave, state],
+  );
+
+  const sync: SyncApi = {
+    status,
+    lastSavedAt,
+    setHostCode,
+    saveNow,
+  };
 
   return (
     <StateContext.Provider value={state}>
       <DispatchContext.Provider value={dispatch}>
-        {children}
+        <SyncContext.Provider value={sync}>{children}</SyncContext.Provider>
       </DispatchContext.Provider>
     </StateContext.Provider>
   );
+}
+
+export function useSync(): SyncApi {
+  const ctx = useContext(SyncContext);
+  if (!ctx) throw new Error("useSync must be used within <GameProvider>");
+  return ctx;
 }
 
 export function useGame(): GameState {
