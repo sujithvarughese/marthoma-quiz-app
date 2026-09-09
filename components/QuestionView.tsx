@@ -88,6 +88,7 @@ export function QuestionView() {
           <Timer
             key={`${question.id}-${status}`}
             duration={isPassed ? TIME_PASSED : TIME_DIRECT}
+            autoStart
             label={
               isPassed
                 ? `Passed question · ${TIME_PASSED}s`

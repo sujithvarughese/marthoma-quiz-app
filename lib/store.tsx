@@ -22,7 +22,7 @@ import { tiebreakerPool as tiebreakerSeed } from "@/data/tiebreaker";
  * ------------------------------------------------------------------ */
 export const AWARD_CORRECT = 10; // direct question answered correctly
 export const AWARD_PASSED = 5; // passed question answered by another team
-export const AWARD_RAPID = 2; // each rapid-fire question answered correctly
+export const AWARD_RAPID = 5; // each rapid-fire question answered correctly
 export const AWARD_TIEBREAK = 1; // sudden-death point
 
 export const TIME_DIRECT = 60; // seconds for a direct question
