@@ -1,67 +1,51 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
-// Plain <img> (not next/image) so hosts can drop in any local path or remote
-// URL in the data file without configuring remote image domains.
-
-import { useState } from "react";
 import {
-  AWARD_CORRECT,
-  AWARD_PASSED,
-  TIME_DIRECT,
-  TIME_PASSED,
+  activeTeam,
+  currentRound,
+  getQuestion,
   useDispatch,
   useGame,
 } from "@/lib/store";
 import { Button } from "./ui";
-import { Timer } from "./Timer";
+import { CountdownTimer } from "./CountdownTimer";
 
+/**
+ * Standard-round question flow. The active (rotating) team answers for full
+ * points; a miss can be opened to a steal for fewer points. The host reveals the
+ * answer and advances — closing rotates the starting team.
+ */
 export function QuestionView() {
-  const { activeQuestion, rounds, teams } = useGame();
+  const state = useGame();
   const dispatch = useDispatch();
-  // The host selects the team that answered; points are committed when they
-  // continue. This avoids accidental double-awards (there is no way to subtract
-  // points, so awards can't be immediate-and-undoable).
-  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
 
-  if (!activeQuestion) return null;
-  const { question, status, revealed, roundId } = activeQuestion;
-  const round = rounds.find((r) => r.id === roundId);
-  const isPassed = status === "passed";
-  const amount = isPassed ? AWARD_PASSED : AWARD_CORRECT;
+  const q = getQuestion(state, state.activeQuestionId);
+  const round = currentRound(state);
+  const session = state.session;
+  if (!q || !round || !session) return null;
 
-  // Commit any selected award, then leave the question.
-  const finish = () => {
-    if (selectedTeamId)
-      dispatch({ type: "AWARD", teamId: selectedTeamId, amount });
-    dispatch({ type: "CLOSE_QUESTION" });
-  };
+  const team = activeTeam(state);
+  const { revealed, stealing, timer } = state;
+  const { correctPoints, stealPoints, allowSteals } = session.settings;
+  const stealCandidates = session.teams.filter((t) => t.id !== team?.id);
 
   return (
     <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.6fr_1fr]">
       {/* Question */}
       <div className="panel flex flex-col p-8">
-        <div className="mb-6 flex items-center gap-3">
+        <div className="mb-6 flex flex-wrap items-center gap-3">
           <span className="rounded-full bg-indigo-500 px-4 py-1.5 text-xl font-black text-white">
-            {question.points} pts
+            {q.category}
           </span>
-          {isPassed && (
+          {stealing && (
             <span className="rounded-full bg-amber-500 px-4 py-1.5 text-xl font-black text-slate-900">
-              PASSED · answer for +{AWARD_PASSED}
+              STEAL · answer for +{stealPoints}
             </span>
           )}
         </div>
 
-        {question.imageUrl && (
-          <img
-            src={question.imageUrl}
-            alt="Question"
-            className="mb-6 max-h-[45vh] w-full rounded-2xl object-contain"
-          />
-        )}
-
         <p className="text-4xl font-bold leading-snug sm:text-5xl">
-          {question.question}
+          {q.question}
         </p>
 
         <div className="mt-8">
@@ -71,7 +55,7 @@ export function QuestionView() {
                 Answer
               </p>
               <p className="mt-1 text-3xl font-black text-emerald-200 sm:text-4xl">
-                {question.answer}
+                {q.answer}
               </p>
             </div>
           ) : (
@@ -80,87 +64,97 @@ export function QuestionView() {
             </Button>
           )}
         </div>
+
+        {q.funFact && (
+          <div className="mt-6 rounded-2xl border border-sky-500/30 bg-sky-500/10 px-5 py-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-sky-300">
+              Fun fact — say it aloud
+            </p>
+            <p className="mt-1 text-lg text-sky-100">{q.funFact}</p>
+          </div>
+        )}
       </div>
 
       {/* Timer + controls */}
       <div className="flex flex-col gap-6">
         <div className="panel flex flex-col items-center gap-6 p-8">
-          <Timer
-            key={`${question.id}-${status}`}
-            duration={isPassed ? TIME_PASSED : TIME_DIRECT}
-            autoStart
-            label={
-              isPassed
-                ? `Passed question · ${TIME_PASSED}s`
-                : `Direct question · ${TIME_DIRECT}s`
-            }
+          <CountdownTimer
+            endsAt={timer.endsAt}
+            durationSeconds={timer.durationSeconds}
+            label={stealing ? `Steal · ${stealPoints} pts` : team ? `${team.name}'s turn` : "Answer"}
           />
         </div>
 
         <div className="panel flex flex-col gap-3 p-6">
-          {!isPassed && (
-            <Button
-              variant="amber"
-              size="lg"
-              onClick={() => {
-                setSelectedTeamId(null);
-                dispatch({ type: "MARK_PASSED" });
-              }}
-            >
-              Mark as passed (→ +{AWARD_PASSED})
-            </Button>
-          )}
-
-          {/* Pick the team that answered; +{amount} is applied on continue. */}
-          {teams.length === 0 ? (
-            <p className="rounded-xl bg-white/5 px-4 py-3 text-center text-base font-semibold text-slate-300">
-              Add teams from the Home screen to award points.
-            </p>
+          {!stealing ? (
+            <>
+              {team && (
+                <Button
+                  variant="success"
+                  size="lg"
+                  onClick={() => dispatch({ type: "AWARD_CORRECT" })}
+                >
+                  ✓ {team.name} correct (+{correctPoints})
+                </Button>
+              )}
+              {allowSteals && stealCandidates.length > 0 && (
+                <Button
+                  variant="amber"
+                  size="md"
+                  onClick={() => dispatch({ type: "OPEN_STEAL" })}
+                >
+                  ✗ Missed — open to steal (+{stealPoints})
+                </Button>
+              )}
+            </>
           ) : (
             <div>
               <p className="mb-2 text-center text-base font-semibold text-slate-300">
-                Who answered correctly?{" "}
-                <span className="text-emerald-300">+{amount}</span>
+                Who stole it?{" "}
+                <span className="text-amber-300">+{stealPoints}</span>
               </p>
               <div className="grid grid-cols-2 gap-2">
-                {teams.map((team) => {
-                  const selected = team.id === selectedTeamId;
-                  return (
-                    <Button
-                      key={team.id}
-                      variant={selected ? "success" : "neutral"}
-                      size="sm"
-                      onClick={() =>
-                        setSelectedTeamId(selected ? null : team.id)
-                      }
-                    >
-                      {selected ? "✓ " : ""}
-                      {team.name}
-                    </Button>
-                  );
-                })}
+                {stealCandidates.map((t) => (
+                  <Button
+                    key={t.id}
+                    variant="neutral"
+                    size="sm"
+                    onClick={() =>
+                      dispatch({ type: "AWARD_STEAL", teamId: t.id })
+                    }
+                  >
+                    {t.name}
+                  </Button>
+                ))}
               </div>
-              <p className="mt-2 text-center text-xs text-slate-400">
-                {selectedTeamId
-                  ? `+${amount} applied when you continue · tap again to deselect`
-                  : "No one? Just continue without selecting."}
-              </p>
+              <Button
+                className="mt-3 w-full"
+                variant="ghost"
+                size="sm"
+                onClick={() => dispatch({ type: "REVEAL_ANSWER" })}
+              >
+                No one — reveal answer
+              </Button>
             </div>
           )}
 
           <div className="mt-2 grid grid-cols-2 gap-3">
-            <Button variant="ghost" size="md" onClick={finish}>
+            <Button
+              variant="ghost"
+              size="md"
+              onClick={() => dispatch({ type: "CLOSE_QUESTION" })}
+            >
               ← Board
             </Button>
-            <Button variant="primary" size="md" onClick={finish}>
-              Next question →
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => dispatch({ type: "CLOSE_QUESTION" })}
+            >
+              Next →
             </Button>
           </div>
-          {round && (
-            <p className="mt-1 text-center text-sm text-slate-400">
-              {round.name}
-            </p>
-          )}
+          <p className="mt-1 text-center text-sm text-slate-400">{round.name}</p>
         </div>
       </div>
     </div>

@@ -1,22 +1,30 @@
 "use client";
 
-import { AWARD_CORRECT, useDispatch, useGame } from "@/lib/store";
+import {
+  activeTeam,
+  currentRound,
+  getQuestion,
+  useDispatch,
+  useGame,
+} from "@/lib/store";
 import { Button } from "./ui";
 
 /**
- * Board for the active round: one card per question, all worth the same points.
- * A team picks a card to reveal that question; a wrong answer can then be
- * passed to another team for half points. Once a card is chosen it locks so no
- * other team can pick the same question.
+ * Board for the active round: one card per question. The banner shows whose turn
+ * it is (rotating each standard question). Picking a card opens the question.
  */
 export function RoundBoard() {
-  const { rounds, activeRoundId } = useGame();
+  const state = useGame();
   const dispatch = useDispatch();
 
-  const round = rounds.find((r) => r.id === activeRoundId);
-  if (!round) return null;
+  const round = currentRound(state);
+  const session = state.session;
+  if (!round || !session) return null;
 
-  const remaining = round.questions.filter((q) => !q.used).length;
+  const used = new Set(session.usedQuestionIds);
+  const remaining = round.questionIds.filter((id) => !used.has(id)).length;
+  const team = activeTeam(state);
+  const isPicture = round.type === "picture";
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -28,12 +36,21 @@ export function RoundBoard() {
           {round.description && (
             <p className="mt-1 text-xl text-indigo-300">{round.description}</p>
           )}
-          <p className="mt-1 text-lg font-semibold text-slate-400">
-            {AWARD_CORRECT} points each · pick a card to answer
-          </p>
+          {isPicture ? (
+            <p className="mt-2 inline-block rounded-full bg-fuchsia-500/20 px-4 py-1 text-lg font-bold text-fuchsia-200">
+              Everyone plays — whiteboards
+            </p>
+          ) : (
+            team && (
+              <p className="mt-2 text-xl font-semibold text-slate-300">
+                Up next:{" "}
+                <span className="font-black text-emerald-300">{team.name}</span>
+              </p>
+            )
+          )}
         </div>
         <p className="text-lg font-semibold text-slate-400">
-          {remaining} of {round.questions.length} remaining
+          {remaining} of {round.questionIds.length} remaining
         </p>
       </div>
 
@@ -46,40 +63,35 @@ export function RoundBoard() {
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-          {round.questions.map((q, i) => (
-            <button
-              key={q.id}
-              disabled={q.used}
-              onClick={() =>
-                dispatch({
-                  type: "REVEAL_QUESTION",
-                  roundId: round.id,
-                  questionId: q.id,
-                })
-              }
-              aria-label={
-                q.used ? `Question ${i + 1} (used)` : `Question ${i + 1}`
-              }
-              className={
-                q.used
-                  ? "flex aspect-square flex-col items-center justify-center rounded-3xl border border-white/5 bg-white/5 text-white/20"
-                  : "flex aspect-square flex-col items-center justify-center rounded-3xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white shadow-xl transition-transform hover:scale-[1.04] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/50"
-              }
-            >
-              {q.used ? (
-                <span className="text-6xl font-black">✓</span>
-              ) : (
-                <>
+          {round.questionIds.map((id, i) => {
+            const isDone = used.has(id);
+            const q = getQuestion(state, id);
+            return (
+              <button
+                key={id}
+                disabled={isDone || !q}
+                onClick={() =>
+                  dispatch({ type: "SELECT_QUESTION", questionId: id })
+                }
+                aria-label={
+                  isDone ? `Question ${i + 1} (used)` : `Question ${i + 1}`
+                }
+                className={
+                  isDone
+                    ? "flex aspect-square flex-col items-center justify-center rounded-3xl border border-white/5 bg-white/5 text-white/20"
+                    : "flex aspect-square flex-col items-center justify-center rounded-3xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white shadow-xl transition-transform hover:scale-[1.04] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/50"
+                }
+              >
+                {isDone ? (
+                  <span className="text-6xl font-black">✓</span>
+                ) : (
                   <span className="text-6xl font-black leading-none">
                     {i + 1}
                   </span>
-                  <span className="mt-2 text-sm font-bold uppercase tracking-widest text-white/70">
-                    {q.points} pts
-                  </span>
-                </>
-              )}
-            </button>
-          ))}
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

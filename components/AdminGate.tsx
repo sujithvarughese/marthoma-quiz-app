@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useState,
+  useSyncExternalStore,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { Button } from "./ui";
 
 /**
@@ -19,26 +24,29 @@ const ADMIN_PASSWORD =
 // Kept only for the browser session — a fresh tab/window asks again.
 const UNLOCK_KEY = "church-quiz-app:admin-unlocked";
 
+// Read the unlock flag from sessionStorage in a hydration-safe way: the server
+// snapshot is always false, and React reconciles to the client value after
+// mount without a mismatch warning.
+const noopSubscribe = () => () => {};
+function readStoredUnlock(): boolean {
+  try {
+    return sessionStorage.getItem(UNLOCK_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function AdminGate({ children }: { children: ReactNode }) {
-  const [unlocked, setUnlocked] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const storedUnlock = useSyncExternalStore(
+    noopSubscribe,
+    readStoredUnlock,
+    () => false,
+  );
+  const [manualUnlock, setManualUnlock] = useState(false);
   const [entry, setEntry] = useState("");
   const [rejected, setRejected] = useState(false);
 
-  // Read the session flag on the client only, to avoid a hydration mismatch.
-  useEffect(() => {
-    setMounted(true);
-    try {
-      if (sessionStorage.getItem(UNLOCK_KEY) === "1") setUnlocked(true);
-    } catch {
-      /* sessionStorage disabled — fall back to asking each load */
-    }
-  }, []);
-
-  // Render nothing until mounted so SSR output matches the first client paint.
-  if (!mounted) return null;
-
-  if (unlocked) return <>{children}</>;
+  if (storedUnlock || manualUnlock) return <>{children}</>;
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -48,7 +56,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
       } catch {
         /* ignore */
       }
-      setUnlocked(true);
+      setManualUnlock(true);
     } else {
       setRejected(true);
     }

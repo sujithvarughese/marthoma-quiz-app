@@ -3,11 +3,11 @@
 import { useSync } from "@/lib/store";
 
 /**
- * Small live indicator of the backend sync state. Sits in the top bar so the
- * host always knows whether the game is safely saved to Firestore.
+ * Small live indicator of the backend sync state, shown in the host top bar so
+ * the operator always knows whether the game is safely saved to Firestore.
  */
 export function SyncIndicator() {
-  const { status, setHostCode, saveNow } = useSync();
+  const { status, setHostCode } = useSync();
 
   const dot = (color: string, pulse = false) => (
     <span
@@ -38,13 +38,12 @@ export function SyncIndicator() {
       );
     case "offline":
       return (
-        <button
-          onClick={saveNow}
-          title="Server unreachable — running on the local cache. Click to retry."
-          className="flex items-center gap-2 text-sm font-semibold text-rose-300 hover:text-rose-200"
+        <span
+          title="Server unreachable — changes will retry automatically."
+          className="flex items-center gap-2 text-sm font-semibold text-rose-300"
         >
-          {dot("bg-rose-500", true)} Offline · retry
-        </button>
+          {dot("bg-rose-500", true)} Offline
+        </span>
       );
     case "locked":
       return (
@@ -62,10 +61,10 @@ export function SyncIndicator() {
     case "disabled":
       return (
         <span
-          title="Firestore isn't configured on the server — the game is saved in this browser only."
+          title="Firestore isn't configured on the server."
           className="flex items-center gap-2 text-sm font-semibold text-slate-400"
         >
-          {dot("bg-slate-500")} Local only
+          {dot("bg-slate-500")} No server
         </span>
       );
   }

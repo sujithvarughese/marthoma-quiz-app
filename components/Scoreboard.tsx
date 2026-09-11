@@ -1,24 +1,20 @@
 "use client";
 
-import { useGame } from "@/lib/store";
+import { rankedTeams, useGame } from "@/lib/store";
 
 /**
- * Always-visible scoreboard running across the bottom of the screen. Display
- * only — points are awarded from the question / rapid-fire / tiebreaker views,
- * not here. Teams are shown highest-score first so the leader is obvious.
+ * Always-visible scoreboard across the bottom of the host screen. Display only —
+ * points are awarded from the question / rapid-fire views. Highest score first.
  */
 export function Scoreboard() {
-  const { teams } = useGame();
-
-  const ranked = teams
-    .map((t, i) => ({ ...t, i }))
-    .sort((a, b) => b.score - a.score || a.i - b.i);
+  const { session } = useGame();
+  const ranked = rankedTeams(session?.teams ?? []);
 
   return (
     <footer className="shrink-0 border-t border-white/10 bg-black/40 px-4 py-3 backdrop-blur">
       {ranked.length === 0 ? (
         <p className="py-2 text-center text-lg font-semibold text-slate-400">
-          No teams yet — add teams from the Home screen.
+          No teams yet — add teams on the setup screen.
         </p>
       ) : (
         <div className="flex gap-3 overflow-x-auto">

@@ -1,28 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import { useDispatch, useGame } from "@/lib/store";
+import { currentRound, useDispatch, useGame } from "@/lib/store";
 import { Button } from "./ui";
 import { SyncIndicator } from "./SyncIndicator";
 
 export function TopBar() {
-  const { view, rounds, activeRoundId } = useGame();
+  const state = useGame();
   const dispatch = useDispatch();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const activeRound = rounds.find((r) => r.id === activeRoundId);
-
+  const round = currentRound(state);
   let context = "";
-  if (view === "board" && activeRound) context = activeRound.name;
-  else if (view === "question" && activeRound) context = activeRound.name;
-  else if (view === "rapidfire") context = "Rapid Fire";
-  else if (view === "tiebreaker") context = "Sudden-Death Tiebreaker";
+  if ((state.view === "board" || state.view === "question" || state.view === "picture") && round)
+    context = round.name;
+  else if (state.view === "rapidfire") context = "Rapid Fire";
+  else if (state.view === "scoreboard") context = "Scoreboard";
+  else if (state.view === "winner") context = "Final Results";
 
   return (
     <header className="sticky top-0 z-40 flex items-center justify-between gap-4 border-b border-white/10 bg-[#0b1120]/90 px-6 py-4 backdrop-blur sm:px-10">
       <div className="flex items-baseline gap-4">
         <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
-          Mar Thoma Church of South Florida.
+          {state.session?.subtitle ?? "Mar Thoma Church of South Florida"}
         </h1>
         {context && (
           <span className="text-lg font-semibold text-indigo-300 sm:text-xl">
@@ -33,7 +33,7 @@ export function TopBar() {
 
       <div className="flex items-center gap-3">
         <SyncIndicator />
-        {view !== "home" && (
+        {state.view !== "home" && (
           <Button
             variant="ghost"
             size="sm"
@@ -43,7 +43,6 @@ export function TopBar() {
           </Button>
         )}
 
-        {/* Destructive controls tucked behind a gear menu to avoid misclicks */}
         <div className="relative">
           <Button
             variant="ghost"
@@ -71,33 +70,20 @@ export function TopBar() {
                   className="block w-full px-4 py-3 text-left text-lg font-semibold text-slate-200 hover:bg-white/10"
                   onClick={() => {
                     setMenuOpen(false);
-                    if (confirm("Reset all scores to 0?"))
-                      dispatch({ type: "RESET_SCORES" });
+                    dispatch({ type: "SHOW_SCOREBOARD" });
                   }}
                 >
-                  Reset scores
+                  Show scoreboard
                 </button>
                 <button
                   role="menuitem"
                   className="block w-full px-4 py-3 text-left text-lg font-semibold text-slate-200 hover:bg-white/10"
                   onClick={() => {
                     setMenuOpen(false);
-                    if (confirm("Mark every question as unused again?"))
-                      dispatch({ type: "RESET_QUESTIONS" });
+                    dispatch({ type: "GO_SETUP" });
                   }}
                 >
-                  Reset questions
-                </button>
-                <div className="border-t border-white/10" />
-                <button
-                  role="menuitem"
-                  className="block w-full px-4 py-3 text-left text-lg font-semibold text-rose-300 hover:bg-rose-500/20"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    dispatch({ type: "GO_LANDING" });
-                  }}
-                >
-                  New game…
+                  Teams / New game…
                 </button>
               </div>
             </>

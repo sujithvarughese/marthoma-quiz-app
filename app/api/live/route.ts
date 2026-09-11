@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
-import { isSessionState } from "@/lib/session";
-import { isFirestoreConfigured, loadSession, saveSession } from "@/lib/firestore";
+import { isLiveDisplay } from "@/lib/live";
+import { isFirestoreConfigured, loadLive, saveLive } from "@/lib/firestore";
 
-// Never cache: this is live, per-request game state.
+// Never cache: this is the live projector state.
 export const dynamic = "force-dynamic";
 
 /**
- * Session state = the game document + team roster/scores. Only the host writes
- * it. If HOST_ACCESS_CODE is set, writes must include a matching `x-host-code`
- * header; reads are always allowed.
+ * The projector doc (games/{id}/live/display). Only the host writes it; the
+ * /display screen reads it live via client-SDK onSnapshot, so this GET is mainly
+ * a fallback / debugging aid. Writes are guarded by HOST_ACCESS_CODE if set.
  */
 function writeAllowed(request: Request): boolean {
   const required = process.env.HOST_ACCESS_CODE;
@@ -16,7 +16,6 @@ function writeAllowed(request: Request): boolean {
   return request.headers.get("x-host-code") === required;
 }
 
-/** GET /api/state — load the session (or null if the game isn't created yet). */
 export async function GET() {
   if (!isFirestoreConfigured()) {
     return NextResponse.json(
@@ -25,18 +24,16 @@ export async function GET() {
     );
   }
   try {
-    const session = await loadSession();
-    return NextResponse.json({ session });
+    const live = await loadLive();
+    return NextResponse.json({ live });
   } catch (err) {
-    console.error("Failed to load session:", err);
-    return NextResponse.json(
-      { error: "Failed to load session." },
-      { status: 500 },
-    );
+    console.error("Failed to load live doc:", err);
+    return NextResponse.json({ error: "Failed to load live doc." }, {
+      status: 500,
+    });
   }
 }
 
-/** PUT /api/state — save the full session (game doc + teams). */
 export async function PUT(request: Request) {
   if (!isFirestoreConfigured()) {
     return NextResponse.json(
@@ -58,21 +55,20 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  if (!isSessionState(body)) {
+  if (!isLiveDisplay(body)) {
     return NextResponse.json(
-      { error: "Body is not a valid session state." },
+      { error: "Body is not a valid live display doc." },
       { status: 400 },
     );
   }
 
   try {
-    await saveSession(body);
+    await saveLive(body);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("Failed to save session:", err);
-    return NextResponse.json(
-      { error: "Failed to save session." },
-      { status: 500 },
-    );
+    console.error("Failed to save live doc:", err);
+    return NextResponse.json({ error: "Failed to save live doc." }, {
+      status: 500,
+    });
   }
 }

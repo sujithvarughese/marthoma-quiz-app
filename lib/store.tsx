@@ -11,108 +11,103 @@ import {
   type Dispatch,
   type ReactNode,
 } from "react";
-import type { Question, Round, Team, ViewMode } from "@/lib/types";
-import { type PersistedState } from "@/lib/persistence";
-import { rounds as roundsSeed } from "@/data/rounds";
-import { rapidFirePool as rapidFireSeed } from "@/data/rapidFire";
-import { tiebreakerPool as tiebreakerSeed } from "@/data/tiebreaker";
+import {
+  rapidFireQuestions,
+  type GameContent,
+  type QuestionDoc,
+  type RoundDoc,
+} from "./content";
+import {
+  activeTeamId as activeTeamIdOf,
+  DEFAULT_SETTINGS,
+  type SessionState,
+  type SessionTeam,
+} from "./session";
+import {
+  IDLE_TIMER,
+  type LiveDisplay,
+  type LiveScore,
+  type LiveTimer,
+} from "./live";
+import { loadContent } from "./firebaseClient";
 
 /* ------------------------------------------------------------------ *
- * Constants — the fixed scoring scheme (no negative scoring anywhere).
+ * Host-side state: read-only content + durable session + transient view.
  * ------------------------------------------------------------------ */
-export const AWARD_CORRECT = 10; // direct question answered correctly
-export const AWARD_PASSED = 5; // passed question answered by another team
-export const AWARD_RAPID = 5; // each rapid-fire question answered correctly
-export const AWARD_TIEBREAK = 1; // sudden-death point
 
-export const TIME_DIRECT = 60; // seconds for a direct question
-export const TIME_PASSED = 30; // seconds for a passed question
-export const TIME_RAPID = 60; // seconds for a team's 5 rapid-fire questions
-
-export const RAPID_FIRE_COUNT = 5; // questions dealt per team
 export const MAX_TEAMS = 8;
 
-/* ------------------------------------------------------------------ *
- * State shape
- * ------------------------------------------------------------------ */
+export type HostView =
+  | "setup" // pre-game team roster
+  | "home" // round menu
+  | "board" // question grid for the current round
+  | "question" // standard question flow
+  | "picture" // picture / whiteboard flow
+  | "rapidfire" // rapid-fire flow
+  | "scoreboard" // full standings
+  | "winner"; // final results
 
-interface ActiveQuestion {
-  roundId: string;
-  question: Question;
-  status: "direct" | "passed";
-  revealed: boolean;
-}
+// Same shape as LiveTimer so it maps straight into the projector doc.
+type HostTimer = LiveTimer;
 
-interface RapidFireState {
+interface RapidState {
   teamId: string;
-  questions: Question[]; // the 5 dealt questions
-  index: number; // 0..questions.length (== length when finished)
+  questionIds: string[];
+  index: number; // 0..length (== length when finished)
   correct: number;
-  revealed: boolean; // answer shown for the current question
+  revealed: boolean;
   finished: boolean;
 }
 
-interface TiebreakerState {
-  question: Question | null;
-  revealed: boolean;
-}
+export interface HostState {
+  content: GameContent | null;
+  session: SessionState | null;
+  loaded: boolean;
 
-export interface GameState {
-  teams: Team[];
-  teamSeq: number; // monotonic counter for team ids
-  rounds: Round[];
-  rapidFirePool: Question[];
-  tiebreakerPool: Question[];
-  view: ViewMode;
-  /** True once a game has been started from the landing screen. While true the
-   *  team roster is locked and the landing offers a "Resume" option. */
-  gameStarted: boolean;
-  activeRoundId: string | null;
-  activeQuestion: ActiveQuestion | null;
-  rapidFire: RapidFireState | null;
-  tiebreaker: TiebreakerState | null;
+  view: HostView;
+
+  // standard/picture question flow
+  activeQuestionId: string | null;
+  revealed: boolean; // answer shown
+  stealing: boolean; // standard round: open-steal phase
+  pictureCorrect: string[]; // picture round: team ids marked correct
+
+  rapid: RapidState | null;
+  timer: HostTimer;
 }
 
 /* ------------------------------------------------------------------ *
- * Helpers
+ * Selectors
  * ------------------------------------------------------------------ */
 
-const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
-
-/** Pick a random element (or null) from a list of unused questions. */
-function pickRandomUnused(questions: Question[]): Question | null {
-  const available = questions.filter((q) => !q.used);
-  if (available.length === 0) return null;
-  return available[Math.floor(Math.random() * available.length)];
+export function currentRound(state: HostState): RoundDoc | null {
+  const { content, session } = state;
+  if (!content || !session?.currentRoundId) return null;
+  return content.rounds.find((r) => r.id === session.currentRoundId) ?? null;
 }
 
-const DEFAULT_TEAM_NAMES = [
-  "Sevika Sangham",
-  "Yuvajana Sakhyam",
-  "Sunday School",
-  "Edavaka Mission",
-  "Choir",
-  "Young Family Fellowship"
-];
+export function getQuestion(
+  state: HostState,
+  id: string | null,
+): QuestionDoc | null {
+  if (!id || !state.content) return null;
+  return state.content.questions[id] ?? null;
+}
 
-function makeInitialState(): GameState {
-  return {
-    teams: DEFAULT_TEAM_NAMES.map((name, i) => ({
-      id: `team-${i + 1}`,
-      name,
-      score: 0,
-    })),
-    teamSeq: DEFAULT_TEAM_NAMES.length,
-    rounds: clone(roundsSeed),
-    rapidFirePool: clone(rapidFireSeed),
-    tiebreakerPool: clone(tiebreakerSeed),
-    view: "landing",
-    gameStarted: false,
-    activeRoundId: null,
-    activeQuestion: null,
-    rapidFire: null,
-    tiebreaker: null,
-  };
+export function activeTeam(state: HostState): SessionTeam | null {
+  const { session } = state;
+  if (!session) return null;
+  const id = activeTeamIdOf(session);
+  return session.teams.find((t) => t.id === id) ?? null;
+}
+
+export function isUsed(state: HostState, id: string): boolean {
+  return state.session?.usedQuestionIds.includes(id) ?? false;
+}
+
+/** Teams sorted highest-score first (stable by roster order on ties). */
+export function rankedTeams(teams: SessionTeam[]): SessionTeam[] {
+  return [...teams].sort((a, b) => b.score - a.score || a.order - b.order);
 }
 
 /* ------------------------------------------------------------------ *
@@ -120,285 +115,434 @@ function makeInitialState(): GameState {
  * ------------------------------------------------------------------ */
 
 export type Action =
-  | { type: "HYDRATE"; state: GameState }
+  | { type: "HYDRATE_CONTENT"; content: GameContent }
+  | { type: "HYDRATE_SESSION"; session: SessionState }
+  | { type: "SESSION_ABSENT" }
+  // setup
   | { type: "ADD_TEAM" }
   | { type: "REMOVE_TEAM"; teamId: string }
   | { type: "RENAME_TEAM"; teamId: string; name: string }
-  | { type: "AWARD"; teamId: string; amount: number }
+  | { type: "START_GAME" }
+  | { type: "NEW_GAME" }
+  // navigation
   | { type: "GO_HOME" }
+  | { type: "GO_SETUP" }
+  | { type: "SHOW_SCOREBOARD" }
+  | { type: "SHOW_WINNER" }
   | { type: "OPEN_ROUND"; roundId: string }
-  | { type: "REVEAL_QUESTION"; roundId: string; questionId: string }
+  // standard / picture question flow
+  | { type: "SELECT_QUESTION"; questionId: string }
   | { type: "REVEAL_ANSWER" }
-  | { type: "MARK_PASSED" }
+  | { type: "AWARD_CORRECT" } // active team answered
+  | { type: "OPEN_STEAL" }
+  | { type: "AWARD_STEAL"; teamId: string }
+  | { type: "TOGGLE_PICTURE_TEAM"; teamId: string } // picture round
+  | { type: "AWARD_PICTURE" }
   | { type: "CLOSE_QUESTION" }
+  // rapid fire
   | { type: "ENTER_RAPIDFIRE" }
   | { type: "START_RAPIDFIRE"; teamId: string }
-  | { type: "RAPIDFIRE_REVEAL" }
-  | { type: "RAPIDFIRE_NEXT"; correct: boolean }
-  | { type: "RAPIDFIRE_FINISH" }
-  | { type: "START_TIEBREAKER" }
-  | { type: "TIEBREAKER_REVEAL" }
-  | { type: "TIEBREAKER_NEXT" }
-  | { type: "RESET_QUESTIONS" }
-  | { type: "RESET_SCORES" }
-  | { type: "GO_LANDING" }
-  | { type: "START_GAME" }
-  | { type: "NEW_GAME" };
+  | { type: "RAPID_REVEAL" }
+  | { type: "RAPID_NEXT"; correct: boolean }
+  | { type: "RAPID_FINISH" }
+  | { type: "EXIT_RAPIDFIRE" }
+  // scores admin
+  | { type: "ADJUST_SCORE"; teamId: string; amount: number };
 
-function markUsed(pool: Question[], id: string): Question[] {
-  return pool.map((q) => (q.id === id ? { ...q, used: true } : q));
+/* ------------------------------------------------------------------ *
+ * Helpers
+ * ------------------------------------------------------------------ */
+
+function award(teams: SessionTeam[], teamId: string, amount: number) {
+  return teams.map((t) =>
+    t.id === teamId ? { ...t, score: Math.max(0, t.score + amount) } : t,
+  );
 }
 
-function reducer(state: GameState, action: Action): GameState {
-  switch (action.type) {
-    case "HYDRATE":
-      return action.state;
+function markUsed(session: SessionState, id: string): string[] {
+  return session.usedQuestionIds.includes(id)
+    ? session.usedQuestionIds
+    : [...session.usedQuestionIds, id];
+}
 
+function startTimer(seconds: number): HostTimer {
+  return {
+    running: true,
+    endsAt: Date.now() + seconds * 1000,
+    durationSeconds: seconds,
+  };
+}
+
+function pickRandomUnused(pool: QuestionDoc[], usedIds: string[], n: number) {
+  const used = new Set(usedIds);
+  const available = pool.filter((q) => !used.has(q.id));
+  const dealt: string[] = [];
+  while (dealt.length < n && available.length) {
+    const i = Math.floor(Math.random() * available.length);
+    dealt.push(available[i].id);
+    available.splice(i, 1);
+  }
+  return dealt;
+}
+
+function rotate(session: SessionState): number {
+  if (!session.settings.rotateStartingTeam || session.teamOrder.length === 0) {
+    return session.activeTeamIndex;
+  }
+  return (session.activeTeamIndex + 1) % session.teamOrder.length;
+}
+
+const CLEARED = {
+  activeQuestionId: null,
+  revealed: false,
+  stealing: false,
+  pictureCorrect: [] as string[],
+  timer: IDLE_TIMER,
+} as const;
+
+/* ------------------------------------------------------------------ *
+ * Reducer
+ * ------------------------------------------------------------------ */
+
+function makeInitialState(): HostState {
+  return {
+    content: null,
+    session: null,
+    loaded: false,
+    view: "setup",
+    activeQuestionId: null,
+    revealed: false,
+    stealing: false,
+    pictureCorrect: [],
+    rapid: null,
+    timer: IDLE_TIMER,
+  };
+}
+
+function reducer(state: HostState, action: Action): HostState {
+  switch (action.type) {
+    case "HYDRATE_CONTENT":
+      return { ...state, content: action.content };
+
+    case "HYDRATE_SESSION": {
+      const s = action.session;
+      const view: HostView =
+        s.status === "not_started"
+          ? "setup"
+          : s.status === "completed"
+            ? "winner"
+            : "home";
+      return { ...state, session: s, loaded: true, view, ...CLEARED };
+    }
+
+    case "SESSION_ABSENT":
+      return { ...state, loaded: true };
+
+    /* ---- setup ---- */
     case "ADD_TEAM": {
-      if (state.teams.length >= MAX_TEAMS) return state;
-      const seq = state.teamSeq + 1;
+      if (!state.session) return state;
+      const order = state.session.teams.length;
+      const id = `team-${order + 1}-${Math.floor(Math.random() * 1e6)}`;
+      const team: SessionTeam = { id, name: `Team ${order + 1}`, order, score: 0 };
+      const teams = [...state.session.teams, team];
       return {
         ...state,
-        teamSeq: seq,
-        teams: [
-          ...state.teams,
-          { id: `team-${seq}`, name: `Team ${state.teams.length + 1}`, score: 0 },
-        ],
+        session: { ...state.session, teams, teamOrder: teams.map((t) => t.id) },
       };
     }
 
-    case "REMOVE_TEAM":
+    case "REMOVE_TEAM": {
+      if (!state.session) return state;
+      const teams = state.session.teams
+        .filter((t) => t.id !== action.teamId)
+        .map((t, i) => ({ ...t, order: i }));
       return {
         ...state,
-        teams: state.teams.filter((t) => t.id !== action.teamId),
-      };
-
-    case "RENAME_TEAM":
-      return {
-        ...state,
-        teams: state.teams.map((t) =>
-          t.id === action.teamId ? { ...t, name: action.name } : t,
-        ),
-      };
-
-    case "AWARD":
-      // No negative scoring: clamp any award at 0 or above.
-      if (action.amount <= 0) return state;
-      return {
-        ...state,
-        teams: state.teams.map((t) =>
-          t.id === action.teamId
-            ? { ...t, score: t.score + action.amount }
-            : t,
-        ),
-      };
-
-    case "GO_HOME":
-      return {
-        ...state,
-        view: "home",
-        activeRoundId: null,
-        activeQuestion: null,
-        rapidFire: null,
-        tiebreaker: null,
-      };
-
-    case "OPEN_ROUND":
-      return {
-        ...state,
-        view: "board",
-        activeRoundId: action.roundId,
-        activeQuestion: null,
-      };
-
-    case "REVEAL_QUESTION": {
-      const round = state.rounds.find((r) => r.id === action.roundId);
-      if (!round) return state;
-      const picked = round.questions.find((q) => q.id === action.questionId);
-      // Ignore if the card was already taken (e.g. a double-click race).
-      if (!picked || picked.used) return state;
-      return {
-        ...state,
-        view: "question",
-        activeRoundId: action.roundId,
-        activeQuestion: {
-          roundId: action.roundId,
-          question: picked,
-          status: "direct",
-          revealed: false,
+        session: {
+          ...state.session,
+          teams,
+          teamOrder: teams.map((t) => t.id),
+          activeTeamIndex: 0,
         },
-        rounds: state.rounds.map((r) =>
-          r.id === action.roundId
-            ? { ...r, questions: markUsed(r.questions, picked.id) }
-            : r,
-        ),
+      };
+    }
+
+    case "RENAME_TEAM": {
+      if (!state.session) return state;
+      return {
+        ...state,
+        session: {
+          ...state.session,
+          teams: state.session.teams.map((t) =>
+            t.id === action.teamId ? { ...t, name: action.name } : t,
+          ),
+        },
+      };
+    }
+
+    case "START_GAME": {
+      if (!state.session) return state;
+      return {
+        ...state,
+        session: { ...state.session, status: "active" },
+        view: "home",
+        ...CLEARED,
+      };
+    }
+
+    case "NEW_GAME": {
+      if (!state.session) return state;
+      const teams = state.session.teams.map((t) => ({ ...t, score: 0 }));
+      return {
+        ...state,
+        session: {
+          ...state.session,
+          status: "not_started",
+          teams,
+          teamOrder: teams.map((t) => t.id),
+          activeTeamIndex: 0,
+          currentRoundId: null,
+          currentQuestionId: null,
+          usedQuestionIds: [],
+        },
+        view: "setup",
+        rapid: null,
+        ...CLEARED,
+      };
+    }
+
+    /* ---- navigation ---- */
+    case "GO_HOME":
+      return { ...state, view: "home", rapid: null, ...CLEARED };
+
+    case "GO_SETUP":
+      return { ...state, view: "setup", rapid: null, ...CLEARED };
+
+    case "SHOW_SCOREBOARD":
+      return { ...state, view: "scoreboard", ...CLEARED };
+
+    case "SHOW_WINNER": {
+      if (!state.session) return state;
+      return {
+        ...state,
+        session: { ...state.session, status: "completed" },
+        view: "winner",
+        rapid: null,
+        ...CLEARED,
+      };
+    }
+
+    case "OPEN_ROUND": {
+      if (!state.session || !state.content) return state;
+      const round = state.content.rounds.find((r) => r.id === action.roundId);
+      if (!round) return state;
+      return {
+        ...state,
+        session: { ...state.session, currentRoundId: round.id, currentQuestionId: null },
+        view: round.type === "picture" ? "board" : "board",
+        ...CLEARED,
+      };
+    }
+
+    /* ---- question flow ---- */
+    case "SELECT_QUESTION": {
+      if (!state.session) return state;
+      const q = getQuestion(state, action.questionId);
+      const round = currentRound(state);
+      if (!q || !round || isUsed(state, q.id)) return state;
+      const isPicture = round.type === "picture";
+      const seconds = isPicture
+        ? state.session.settings.pictureAnswerSeconds
+        : state.session.settings.normalAnswerSeconds;
+      return {
+        ...state,
+        session: {
+          ...state.session,
+          currentQuestionId: q.id,
+          usedQuestionIds: markUsed(state.session, q.id),
+        },
+        view: isPicture ? "picture" : "question",
+        activeQuestionId: q.id,
+        revealed: false,
+        stealing: false,
+        pictureCorrect: [],
+        timer: startTimer(seconds),
       };
     }
 
     case "REVEAL_ANSWER":
-      if (!state.activeQuestion) return state;
-      return {
-        ...state,
-        activeQuestion: { ...state.activeQuestion, revealed: true },
-      };
+      return { ...state, revealed: true, timer: IDLE_TIMER };
 
-    case "MARK_PASSED":
-      if (!state.activeQuestion) return state;
+    case "AWARD_CORRECT": {
+      if (!state.session) return state;
+      const team = activeTeam(state);
+      if (!team) return state;
       return {
         ...state,
-        activeQuestion: { ...state.activeQuestion, status: "passed" },
+        session: {
+          ...state.session,
+          teams: award(
+            state.session.teams,
+            team.id,
+            state.session.settings.correctPoints,
+          ),
+        },
+        revealed: true,
+        timer: IDLE_TIMER,
       };
+    }
 
-    case "CLOSE_QUESTION":
+    case "OPEN_STEAL": {
+      if (!state.session) return state;
       return {
         ...state,
+        stealing: true,
+        revealed: false,
+        timer: startTimer(state.session.settings.stealAnswerSeconds),
+      };
+    }
+
+    case "AWARD_STEAL": {
+      if (!state.session) return state;
+      return {
+        ...state,
+        session: {
+          ...state.session,
+          teams: award(
+            state.session.teams,
+            action.teamId,
+            state.session.settings.stealPoints,
+          ),
+        },
+        stealing: false,
+        revealed: true,
+        timer: IDLE_TIMER,
+      };
+    }
+
+    case "TOGGLE_PICTURE_TEAM": {
+      const has = state.pictureCorrect.includes(action.teamId);
+      return {
+        ...state,
+        pictureCorrect: has
+          ? state.pictureCorrect.filter((id) => id !== action.teamId)
+          : [...state.pictureCorrect, action.teamId],
+      };
+    }
+
+    case "AWARD_PICTURE": {
+      if (!state.session) return state;
+      let teams = state.session.teams;
+      for (const id of state.pictureCorrect) {
+        teams = award(teams, id, state.session.settings.picturePoints);
+      }
+      return {
+        ...state,
+        session: { ...state.session, teams },
+        revealed: true,
+        timer: IDLE_TIMER,
+      };
+    }
+
+    case "CLOSE_QUESTION": {
+      if (!state.session) return state;
+      const round = currentRound(state);
+      // Rotate the starting team only after a standard question.
+      const activeTeamIndex =
+        round && round.type === "standard"
+          ? rotate(state.session)
+          : state.session.activeTeamIndex;
+      return {
+        ...state,
+        session: {
+          ...state.session,
+          activeTeamIndex,
+          currentQuestionId: null,
+        },
         view: "board",
-        activeQuestion: null,
+        ...CLEARED,
       };
+    }
 
+    /* ---- rapid fire ---- */
     case "ENTER_RAPIDFIRE":
-      // Show the rapid-fire lobby (team picker) without dealing questions yet.
-      return { ...state, view: "rapidfire", rapidFire: null };
+      return { ...state, view: "rapidfire", rapid: null, ...CLEARED };
 
     case "START_RAPIDFIRE": {
-      // Deal RAPID_FIRE_COUNT random unused questions and mark them used.
-      let pool = state.rapidFirePool;
-      const dealt: Question[] = [];
-      for (let i = 0; i < RAPID_FIRE_COUNT; i++) {
-        const picked = pickRandomUnused(pool);
-        if (!picked) break;
-        dealt.push(picked);
-        pool = markUsed(pool, picked.id);
-      }
+      if (!state.session || !state.content) return state;
+      const pool = rapidFireQuestions(state.content);
+      const dealt = pickRandomUnused(
+        pool,
+        state.session.usedQuestionIds,
+        state.session.settings.rapidFireQuestionCount,
+      );
       if (dealt.length === 0) return state;
       return {
         ...state,
+        session: {
+          ...state.session,
+          usedQuestionIds: [...state.session.usedQuestionIds, ...dealt],
+        },
         view: "rapidfire",
-        rapidFirePool: pool,
-        rapidFire: {
+        rapid: {
           teamId: action.teamId,
-          questions: dealt,
+          questionIds: dealt,
           index: 0,
           correct: 0,
           revealed: false,
           finished: false,
         },
+        timer: startTimer(state.session.settings.rapidFireSeconds),
       };
     }
 
-    case "RAPIDFIRE_REVEAL":
-      if (!state.rapidFire) return state;
-      return {
-        ...state,
-        rapidFire: { ...state.rapidFire, revealed: true },
-      };
+    case "RAPID_REVEAL":
+      if (!state.rapid) return state;
+      return { ...state, rapid: { ...state.rapid, revealed: true } };
 
-    case "RAPIDFIRE_NEXT": {
-      const rf = state.rapidFire;
-      if (!rf) return state;
+    case "RAPID_NEXT": {
+      const rf = state.rapid;
+      if (!rf || !state.session) return state;
       const correct = rf.correct + (action.correct ? 1 : 0);
       const nextIndex = rf.index + 1;
-      const finished = nextIndex >= rf.questions.length;
+      const finished = nextIndex >= rf.questionIds.length;
       return {
         ...state,
-        // Award +2 immediately so the scoreboard stays live.
-        teams: action.correct
-          ? state.teams.map((t) =>
-              t.id === rf.teamId ? { ...t, score: t.score + AWARD_RAPID } : t,
-            )
-          : state.teams,
-        rapidFire: {
-          ...rf,
-          index: nextIndex,
-          correct,
-          revealed: false,
-          finished,
+        session: action.correct
+          ? {
+              ...state.session,
+              teams: award(
+                state.session.teams,
+                rf.teamId,
+                state.session.settings.rapidFirePoints,
+              ),
+            }
+          : state.session,
+        rapid: { ...rf, index: nextIndex, correct, revealed: false, finished },
+        timer: finished ? IDLE_TIMER : state.timer,
+      };
+    }
+
+    case "RAPID_FINISH":
+      if (!state.rapid) return state;
+      return {
+        ...state,
+        rapid: { ...state.rapid, finished: true },
+        timer: IDLE_TIMER,
+      };
+
+    case "EXIT_RAPIDFIRE":
+      return { ...state, view: "home", rapid: null, ...CLEARED };
+
+    /* ---- score admin ---- */
+    case "ADJUST_SCORE": {
+      if (!state.session) return state;
+      return {
+        ...state,
+        session: {
+          ...state.session,
+          teams: award(state.session.teams, action.teamId, action.amount),
         },
-      };
-    }
-
-    case "RAPIDFIRE_FINISH":
-      if (!state.rapidFire) return state;
-      return {
-        ...state,
-        rapidFire: { ...state.rapidFire, finished: true },
-      };
-
-    case "START_TIEBREAKER": {
-      const picked = pickRandomUnused(state.tiebreakerPool);
-      return {
-        ...state,
-        view: "tiebreaker",
-        tiebreakerPool: picked
-          ? markUsed(state.tiebreakerPool, picked.id)
-          : state.tiebreakerPool,
-        tiebreaker: { question: picked, revealed: false },
-      };
-    }
-
-    case "TIEBREAKER_REVEAL":
-      if (!state.tiebreaker) return state;
-      return {
-        ...state,
-        tiebreaker: { ...state.tiebreaker, revealed: true },
-      };
-
-    case "TIEBREAKER_NEXT": {
-      const picked = pickRandomUnused(state.tiebreakerPool);
-      return {
-        ...state,
-        tiebreakerPool: picked
-          ? markUsed(state.tiebreakerPool, picked.id)
-          : state.tiebreakerPool,
-        tiebreaker: { question: picked, revealed: false },
-      };
-    }
-
-    case "RESET_QUESTIONS":
-      return {
-        ...state,
-        rounds: state.rounds.map((r) => ({
-          ...r,
-          questions: r.questions.map((q) => ({ ...q, used: false })),
-        })),
-        rapidFirePool: state.rapidFirePool.map((q) => ({ ...q, used: false })),
-        tiebreakerPool: state.tiebreakerPool.map((q) => ({ ...q, used: false })),
-      };
-
-    case "RESET_SCORES":
-      return {
-        ...state,
-        teams: state.teams.map((t) => ({ ...t, score: 0 })),
-      };
-
-    case "GO_LANDING":
-      // Show the intro/menu (e.g. the gear "New game" during play). Does not
-      // reset anything — the landing offers Resume or New Game from there.
-      return { ...state, view: "landing" };
-
-    case "START_GAME":
-      // Begin play from the landing setup. Teams are now locked.
-      return {
-        ...state,
-        gameStarted: true,
-        view: "home",
-        activeRoundId: null,
-        activeQuestion: null,
-        rapidFire: null,
-        tiebreaker: null,
-      };
-
-    case "NEW_GAME": {
-      // Tear the current game down to a fresh setup: clear scores + question
-      // progress, unlock the roster, and stay on the landing so the host can
-      // adjust teams before starting again.
-      const fresh = makeInitialState();
-      return {
-        ...fresh,
-        teams: state.teams.map((t) => ({ ...t, score: 0 })),
-        teamSeq: state.teamSeq,
-        view: "landing",
-        gameStarted: false,
       };
     }
 
@@ -408,270 +552,259 @@ function reducer(state: GameState, action: Action): GameState {
 }
 
 /* ------------------------------------------------------------------ *
- * Persistence — only the durable game data, not transient view state.
+ * Projector projection — derive the /display doc from host state.
  * ------------------------------------------------------------------ */
 
-// Firestore (via /api/state) is the source of truth; localStorage is an
-// offline cache so a brief network blip never loses the game.
-const STORAGE_KEY = "church-quiz-app:v2";
-const HOST_CODE_KEY = "church-quiz-app:hostCode";
-const SAVE_DEBOUNCE_MS = 700;
-
-/**
- * We persist only teams and the set of *used* question ids — never the question
- * text itself. Content is always seeded fresh from the data files, so edits to
- * /data take effect on reload while an in-progress event keeps its scores and
- * which cards have been played. Stale ids (from removed questions) are ignored.
- */
-
-/** Collect every used question id across rounds and the two pools. */
-function collectUsedIds(
-  rounds: Round[],
-  rapidFirePool: Question[],
-  tiebreakerPool: Question[],
-): string[] {
-  const ids: string[] = [];
-  for (const r of rounds)
-    for (const q of r.questions) if (q.used) ids.push(q.id);
-  for (const q of rapidFirePool) if (q.used) ids.push(q.id);
-  for (const q of tiebreakerPool) if (q.used) ids.push(q.id);
-  return ids;
+function scoresOf(session: SessionState): LiveScore[] {
+  return rankedTeams(session.teams).map((t) => ({
+    id: t.id,
+    name: t.name,
+    score: t.score,
+  }));
 }
 
-/** Apply a set of used ids onto a fresh (all-unused) question list. */
-function applyUsed<T extends Question>(pool: T[], used: Set<string>): T[] {
-  return pool.map((q) => (used.has(q.id) ? { ...q, used: true } : q));
-}
+export function buildLive(state: HostState): LiveDisplay | null {
+  const { session, content } = state;
+  if (!session || !content) return null;
 
-/** Reduce full game state down to the durable slice we persist. */
-function snapshot(state: GameState): PersistedState {
-  return {
-    teams: state.teams,
-    teamSeq: state.teamSeq,
-    gameStarted: state.gameStarted,
-    usedIds: collectUsedIds(
-      state.rounds,
-      state.rapidFirePool,
-      state.tiebreakerPool,
-    ),
+  const base: LiveDisplay = {
+    screen: "welcome",
+    roundId: session.currentRoundId,
+    roundName: null,
+    questionId: null,
+    questionNumber: null,
+    question: null,
+    answer: null,
+    imageUrl: null,
+    showAnswer: false,
+    activeTeamId: null,
+    activeTeamName: null,
+    message: null,
+    timer: state.timer,
+    board: null,
+    scores: scoresOf(session),
+    rapidFire: null,
+    updatedAt: Date.now(),
   };
-}
 
-/** Rebuild full game state from a persisted slice over the seed data. */
-function applyPersisted(base: GameState, saved: PersistedState): GameState {
-  const used = new Set(saved.usedIds);
-  return {
-    ...base,
-    teams: saved.teams.length ? saved.teams : base.teams,
-    teamSeq: saved.teamSeq,
-    gameStarted: saved.gameStarted ?? false,
-    rounds: base.rounds.map((r) => ({
-      ...r,
-      questions: applyUsed(r.questions, used),
-    })),
-    rapidFirePool: applyUsed(base.rapidFirePool, used),
-    tiebreakerPool: applyUsed(base.tiebreakerPool, used),
-  };
-}
+  const round = currentRound(state);
+  const team = activeTeam(state);
+  const q = getQuestion(state, state.activeQuestionId);
 
-function loadLocal(): PersistedState | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as PersistedState) : null;
-  } catch {
-    return null;
-  }
-}
+  switch (state.view) {
+    case "setup":
+      return { ...base, screen: "welcome", message: `${session.subtitle} — ${session.name}`, timer: IDLE_TIMER };
 
-function saveLocal(snap: PersistedState): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snap));
-  } catch {
-    /* storage full / disabled — server save still covers us */
+    case "home":
+      return { ...base, screen: "scoreboard", message: "Get ready…", timer: IDLE_TIMER };
+
+    case "scoreboard":
+      return { ...base, screen: "scoreboard", timer: IDLE_TIMER };
+
+    case "winner":
+      return { ...base, screen: "winner", timer: IDLE_TIMER };
+
+    case "board": {
+      if (!round) return { ...base, screen: "scoreboard" };
+      const board = round.questionIds.map((id, i) => ({
+        questionId: id,
+        order: i + 1,
+        used: session.usedQuestionIds.includes(id),
+      }));
+      return {
+        ...base,
+        screen: "board",
+        roundName: round.name,
+        activeTeamId: team?.id ?? null,
+        activeTeamName: team?.name ?? null,
+        board,
+        timer: IDLE_TIMER,
+      };
+    }
+
+    case "question": {
+      if (!q || !round) return base;
+      const number = round.questionIds.indexOf(q.id) + 1;
+      const screen = state.revealed ? "answer" : "question";
+      return {
+        ...base,
+        screen,
+        roundName: round.name,
+        questionId: q.id,
+        questionNumber: number,
+        question: q.question,
+        answer: state.revealed ? q.answer : null,
+        imageUrl: null,
+        showAnswer: state.revealed,
+        activeTeamId: state.stealing ? null : team?.id ?? null,
+        activeTeamName: state.stealing ? null : team?.name ?? null,
+        message: state.stealing ? "Open to steal!" : null,
+      };
+    }
+
+    case "picture": {
+      if (!q || !round) return base;
+      const number = round.questionIds.indexOf(q.id) + 1;
+      const screen = state.revealed ? "answer" : "question";
+      return {
+        ...base,
+        screen,
+        roundName: round.name,
+        questionId: q.id,
+        questionNumber: number,
+        question: q.question,
+        answer: state.revealed ? q.answer : null,
+        imageUrl: q.imageUrl,
+        showAnswer: state.revealed,
+        message: "Everyone plays — whiteboards ready!",
+      };
+    }
+
+    case "rapidfire": {
+      const rf = state.rapid;
+      if (!rf) {
+        return { ...base, screen: "scoreboard", message: "Rapid fire — pick a team", timer: IDLE_TIMER };
+      }
+      const team2 = session.teams.find((t) => t.id === rf.teamId);
+      const cur = getQuestion(state, rf.questionIds[rf.index] ?? null);
+      return {
+        ...base,
+        screen: "rapid_fire",
+        rapidFire: {
+          teamName: team2?.name ?? "",
+          total: rf.questionIds.length,
+          index: rf.index,
+          correct: rf.correct,
+          question: rf.finished ? null : cur?.question ?? null,
+          answer: rf.revealed && cur ? cur.answer : null,
+          showAnswer: rf.revealed,
+          finished: rf.finished,
+        },
+      };
+    }
+
+    default:
+      return base;
   }
 }
 
 /* ------------------------------------------------------------------ *
- * Context + provider + hook
+ * Persistence — session via /api/state, projector via /api/live.
  * ------------------------------------------------------------------ */
 
-/**
- * Sync state exposed to the UI (a small indicator in the top bar).
- *   loading  — fetching the saved game from the server
- *   saving   — a change is queued / being written
- *   saved    — successfully persisted to Firestore
- *   offline  — server unreachable; running on the local cache only
- *   locked   — server requires a host access code we don't have
- *   disabled — Firestore isn't configured on the server (local cache only)
- */
-export type SyncStatus =
-  | "loading"
-  | "saving"
-  | "saved"
-  | "offline"
-  | "locked"
-  | "disabled";
+const HOST_CODE_KEY = "church-quiz-app:hostCode";
+const SESSION_DEBOUNCE_MS = 350;
+const LIVE_DEBOUNCE_MS = 150;
+
+export type SyncStatus = "loading" | "saving" | "saved" | "offline" | "locked" | "disabled";
+
+function hostHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (typeof window !== "undefined") {
+    const code = window.localStorage.getItem(HOST_CODE_KEY);
+    if (code) headers["x-host-code"] = code;
+  }
+  return headers;
+}
 
 interface SyncApi {
   status: SyncStatus;
-  lastSavedAt: number | null;
-  /** Store (or clear) the host access code and retry the last save. */
   setHostCode: (code: string) => void;
-  /** Force an immediate save/retry, bypassing the debounce. */
-  saveNow: () => void;
 }
 
-const StateContext = createContext<GameState | null>(null);
+const StateContext = createContext<HostState | null>(null);
 const DispatchContext = createContext<Dispatch<Action> | null>(null);
 const SyncContext = createContext<SyncApi | null>(null);
 
 export function GameProvider({ children }: { children: ReactNode }) {
-  // Lazy init keeps SSR output === first client render, then we hydrate from
-  // the cache/server in effects to avoid a hydration mismatch.
   const [state, dispatch] = useReducer(reducer, undefined, makeInitialState);
-
   const [status, setStatus] = useState<SyncStatus>("loading");
-  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
 
-  const hydratedRef = useRef(false); // block saves until initial load finishes
-  const serverDisabledRef = useRef(false); // Firestore not configured
-  const saveTimer = useRef<number | null>(null);
-  const latestSnapshot = useRef<PersistedState | null>(null);
+  const hydratedRef = useRef(false);
+  const sessionTimer = useRef<number | null>(null);
+  const liveTimer = useRef<number | null>(null);
 
-  // Push a snapshot to the server (localStorage is written separately, first).
-  const doSave = useCallback(async (snap: PersistedState) => {
-    if (serverDisabledRef.current) {
-      setStatus("disabled");
-      return;
-    }
-    try {
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      const code =
-        typeof window !== "undefined"
-          ? window.localStorage.getItem(HOST_CODE_KEY)
-          : null;
-      if (code) headers["x-host-code"] = code;
-
-      const res = await fetch("/api/state", {
-        method: "PUT",
-        headers,
-        body: JSON.stringify(snap),
-      });
-      if (res.status === 503) {
-        serverDisabledRef.current = true;
-        setStatus("disabled");
-        return;
-      }
-      if (res.status === 401) {
-        setStatus("locked");
-        return;
-      }
-      if (!res.ok) throw new Error(`save failed: ${res.status}`);
-      setStatus("saved");
-      setLastSavedAt(Date.now());
-    } catch {
-      setStatus("offline");
-    }
-  }, []);
-
-  // Initial hydrate: local cache first (instant), then the server (authoritative).
+  // Initial load: content (client SDK) + session (server route).
   useEffect(() => {
     let cancelled = false;
-
-    const local = loadLocal();
-    if (local) {
-      dispatch({
-        type: "HYDRATE",
-        state: applyPersisted(makeInitialState(), local),
-      });
-    }
-
     (async () => {
+      try {
+        const content = await loadContent();
+        if (!cancelled) dispatch({ type: "HYDRATE_CONTENT", content });
+      } catch (err) {
+        console.error("content load failed:", err);
+      }
       try {
         const res = await fetch("/api/state", { cache: "no-store" });
         if (res.status === 503) {
-          serverDisabledRef.current = true;
           if (!cancelled) setStatus("disabled");
-          return;
+        } else if (res.ok) {
+          const data = (await res.json()) as { session: SessionState | null };
+          if (!cancelled) {
+            if (data.session) dispatch({ type: "HYDRATE_SESSION", session: data.session });
+            else dispatch({ type: "SESSION_ABSENT" });
+            setStatus("saved");
+          }
         }
-        if (!res.ok) throw new Error(`load failed: ${res.status}`);
-        const data = (await res.json()) as { state: PersistedState | null };
-        if (!cancelled && data.state) {
-          dispatch({
-            type: "HYDRATE",
-            state: applyPersisted(makeInitialState(), data.state),
-          });
-        }
-        if (!cancelled) setStatus("saved");
       } catch {
         if (!cancelled) setStatus("offline");
       } finally {
-        // Allow saves now — even offline, so the local cache keeps updating.
         hydratedRef.current = true;
       }
     })();
-
     return () => {
       cancelled = true;
     };
   }, []);
 
-  // Persist durable data whenever it changes (local immediately, server debounced).
-  const { teams, teamSeq, rounds, rapidFirePool, tiebreakerPool, gameStarted } =
-    state;
+  const { session } = state;
+
+  // Persist the session (game doc + teams) whenever it changes.
+  useEffect(() => {
+    if (!hydratedRef.current || !session) return;
+    setStatus((s) => (s === "disabled" || s === "locked" ? s : "saving"));
+    if (sessionTimer.current) window.clearTimeout(sessionTimer.current);
+    sessionTimer.current = window.setTimeout(async () => {
+      try {
+        const res = await fetch("/api/state", {
+          method: "PUT",
+          headers: hostHeaders(),
+          body: JSON.stringify(session),
+        });
+        if (res.status === 401) setStatus("locked");
+        else if (res.status === 503) setStatus("disabled");
+        else if (res.ok) setStatus("saved");
+        else setStatus("offline");
+      } catch {
+        setStatus("offline");
+      }
+    }, SESSION_DEBOUNCE_MS);
+  }, [session]);
+
+  // Publish the projector doc on any visible change.
   useEffect(() => {
     if (!hydratedRef.current) return;
-    const snap: PersistedState = {
-      teams,
-      teamSeq,
-      gameStarted,
-      usedIds: collectUsedIds(rounds, rapidFirePool, tiebreakerPool),
-    };
-    latestSnapshot.current = snap;
-    saveLocal(snap);
+    const live = buildLive(state);
+    if (!live) return;
+    if (liveTimer.current) window.clearTimeout(liveTimer.current);
+    liveTimer.current = window.setTimeout(() => {
+      void fetch("/api/live", {
+        method: "PUT",
+        headers: hostHeaders(),
+        body: JSON.stringify(live),
+      }).catch(() => {});
+    }, LIVE_DEBOUNCE_MS);
+    // Recompute when any of these change.
+  }, [state]);
 
-    setStatus((s) => (s === "disabled" || s === "locked" ? s : "saving"));
-    if (saveTimer.current) window.clearTimeout(saveTimer.current);
-    saveTimer.current = window.setTimeout(() => {
-      void doSave(snap);
-    }, SAVE_DEBOUNCE_MS);
-  }, [
-    teams,
-    teamSeq,
-    rounds,
-    rapidFirePool,
-    tiebreakerPool,
-    gameStarted,
-    doSave,
-  ]);
+  const setHostCode = useCallback((code: string) => {
+    if (typeof window !== "undefined") {
+      if (code) window.localStorage.setItem(HOST_CODE_KEY, code);
+      else window.localStorage.removeItem(HOST_CODE_KEY);
+    }
+  }, []);
 
-  const saveNow = useCallback(() => {
-    if (saveTimer.current) window.clearTimeout(saveTimer.current);
-    void doSave(latestSnapshot.current ?? snapshot(state));
-  }, [doSave, state]);
-
-  const setHostCode = useCallback(
-    (code: string) => {
-      if (typeof window !== "undefined") {
-        if (code) window.localStorage.setItem(HOST_CODE_KEY, code);
-        else window.localStorage.removeItem(HOST_CODE_KEY);
-      }
-      serverDisabledRef.current = false;
-      void doSave(latestSnapshot.current ?? snapshot(state));
-    },
-    [doSave, state],
-  );
-
-  const sync: SyncApi = {
-    status,
-    lastSavedAt,
-    setHostCode,
-    saveNow,
-  };
+  const sync: SyncApi = { status, setHostCode };
 
   return (
     <StateContext.Provider value={state}>
@@ -688,7 +821,7 @@ export function useSync(): SyncApi {
   return ctx;
 }
 
-export function useGame(): GameState {
+export function useGame(): HostState {
   const ctx = useContext(StateContext);
   if (!ctx) throw new Error("useGame must be used within <GameProvider>");
   return ctx;
@@ -699,3 +832,6 @@ export function useDispatch(): Dispatch<Action> {
   if (!ctx) throw new Error("useDispatch must be used within <GameProvider>");
   return ctx;
 }
+
+// Re-export settings default for convenience.
+export { DEFAULT_SETTINGS };

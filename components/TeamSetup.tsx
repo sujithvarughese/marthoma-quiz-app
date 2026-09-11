@@ -4,13 +4,13 @@ import { MAX_TEAMS, useDispatch, useGame } from "@/lib/store";
 import { Button } from "./ui";
 
 /**
- * Editable roster: rename, remove, and add teams (up to MAX_TEAMS).
- * When `locked` (a game is in progress) teams can't be added or removed — the
- * roster is fixed for the duration of the game.
+ * Editable roster: rename, remove, and add teams (up to MAX_TEAMS). When
+ * `locked` (a game is in progress) teams can't be added or removed.
  */
 export function TeamSetup({ locked = false }: { locked?: boolean }) {
-  const { teams } = useGame();
+  const { session } = useGame();
   const dispatch = useDispatch();
+  const teams = session?.teams ?? [];
 
   return (
     <section className="panel p-6">
@@ -61,9 +61,7 @@ export function TeamSetup({ locked = false }: { locked?: boolean }) {
                 variant="danger"
                 size="sm"
                 aria-label={`Remove ${team.name}`}
-                onClick={() =>
-                  dispatch({ type: "REMOVE_TEAM", teamId: team.id })
-                }
+                onClick={() => dispatch({ type: "REMOVE_TEAM", teamId: team.id })}
               >
                 ✕
               </Button>

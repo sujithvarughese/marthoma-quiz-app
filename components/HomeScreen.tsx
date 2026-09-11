@@ -1,8 +1,9 @@
 "use client";
 
 import { useDispatch, useGame } from "@/lib/store";
+import { rapidFireQuestions } from "@/lib/content";
 
-// Accent colours cycle through the six rounds for quick visual distinction.
+// Accent colours cycle through the rounds for quick visual distinction.
 const ROUND_ACCENTS = [
   "from-indigo-500 to-indigo-700",
   "from-emerald-500 to-emerald-700",
@@ -13,24 +14,29 @@ const ROUND_ACCENTS = [
 ];
 
 /**
- * The in-game hub: pick a round or a special round. Team setup and destructive
- * controls live on the landing screen and the gear menu respectively.
+ * The in-game hub: pick a round or rapid fire, or jump to the scoreboard /
+ * final results.
  */
 export function HomeScreen() {
-  const { rounds, rapidFirePool, tiebreakerPool } = useGame();
+  const state = useGame();
   const dispatch = useDispatch();
+  const { content, session } = state;
+  if (!content || !session) return null;
 
-  const rapidRemaining = rapidFirePool.filter((q) => !q.used).length;
-  const tbRemaining = tiebreakerPool.filter((q) => !q.used).length;
+  const used = new Set(session.usedQuestionIds);
+  const rapidRemaining = rapidFireQuestions(content).filter(
+    (q) => !used.has(q.id),
+  ).length;
 
   return (
     <div className="mx-auto max-w-6xl">
-      {/* Rounds */}
       <h2 className="mb-5 text-3xl font-black tracking-tight">Choose a round</h2>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {rounds.map((round, i) => {
-          const remaining = round.questions.filter((q) => !q.used).length;
-          const total = round.questions.length;
+        {content.rounds.map((round, i) => {
+          const total = round.questionIds.length;
+          const remaining = round.questionIds.filter(
+            (id) => !used.has(id),
+          ).length;
           return (
             <button
               key={round.id}
@@ -52,41 +58,50 @@ export function HomeScreen() {
               </div>
               <p className="mt-4 text-sm font-semibold uppercase tracking-wide text-white/70">
                 {remaining} of {total} left
-                {round.isPicture && " · picture round"}
+                {round.type === "picture" && " · picture round"}
               </p>
             </button>
           );
         })}
       </div>
 
-      {/* Special modes */}
       <h2 className="mb-4 mt-8 text-3xl font-black tracking-tight">
         Special rounds
       </h2>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-3">
         <button
           onClick={() => dispatch({ type: "ENTER_RAPIDFIRE" })}
           className="flex flex-col justify-between rounded-3xl border-2 border-yellow-400/60 bg-yellow-400/10 p-6 text-left shadow-xl transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/50"
         >
           <span className="text-4xl">⚡</span>
-          <h3 className="mt-3 text-2xl font-black text-yellow-300">
-            Rapid Fire
-          </h3>
+          <h3 className="mt-3 text-2xl font-black text-yellow-300">Rapid Fire</h3>
           <p className="mt-1 text-sm font-semibold uppercase tracking-wide text-yellow-200/70">
             {rapidRemaining} questions in pool
           </p>
         </button>
 
         <button
-          onClick={() => dispatch({ type: "START_TIEBREAKER" })}
-          className="flex flex-col justify-between rounded-3xl border-2 border-rose-400/60 bg-rose-400/10 p-6 text-left shadow-xl transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/50"
+          onClick={() => dispatch({ type: "SHOW_SCOREBOARD" })}
+          className="flex flex-col justify-between rounded-3xl border-2 border-sky-400/60 bg-sky-400/10 p-6 text-left shadow-xl transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/50"
         >
-          <span className="text-4xl">⚔️</span>
-          <h3 className="mt-3 text-2xl font-black text-rose-300">
-            Sudden-Death Tiebreaker
-          </h3>
-          <p className="mt-1 text-sm font-semibold uppercase tracking-wide text-rose-200/70">
-            {tbRemaining} questions in pool
+          <span className="text-4xl">📊</span>
+          <h3 className="mt-3 text-2xl font-black text-sky-300">Scoreboard</h3>
+          <p className="mt-1 text-sm font-semibold uppercase tracking-wide text-sky-200/70">
+            Show standings on the projector
+          </p>
+        </button>
+
+        <button
+          onClick={() => {
+            if (confirm("Show the final results and end the game?"))
+              dispatch({ type: "SHOW_WINNER" });
+          }}
+          className="flex flex-col justify-between rounded-3xl border-2 border-amber-400/60 bg-amber-400/10 p-6 text-left shadow-xl transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/50"
+        >
+          <span className="text-4xl">🏆</span>
+          <h3 className="mt-3 text-2xl font-black text-amber-300">Final Results</h3>
+          <p className="mt-1 text-sm font-semibold uppercase tracking-wide text-amber-200/70">
+            Reveal the winner
           </p>
         </button>
       </div>
