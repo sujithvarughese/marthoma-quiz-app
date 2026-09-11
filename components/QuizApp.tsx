@@ -1,6 +1,7 @@
 "use client";
 
 import { useGame } from "@/lib/store";
+import { AdminGate } from "./AdminGate";
 import { TopBar } from "./TopBar";
 import { Landing } from "./Landing";
 import { HomeScreen } from "./HomeScreen";
@@ -21,7 +22,11 @@ import { Scoreboard } from "./Scoreboard";
 export function QuizApp() {
   const { view } = useGame();
 
-  if (view === "landing") return <Landing />;
+  return <AdminGate>{view === "landing" ? <Landing /> : <MainShell />}</AdminGate>;
+}
+
+function MainShell() {
+  const { view } = useGame();
 
   return (
     <div className="flex h-dvh flex-col">
