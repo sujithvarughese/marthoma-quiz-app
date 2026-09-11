@@ -440,7 +440,7 @@ function RoundsScreen({ live }: { live: LiveDisplay }) {
 
 /** Standings Scoreboard Screen */
 function ScoreboardScreen({ live }: { live: LiveDisplay }) {
-  const scores = live.scores ?? [];
+  const scores = [...(live.scores ?? [])].sort((a, b) => b.score - a.score);
   return (
     <div className="flex flex-1 flex-col justify-center gap-10 p-10">
       <header className="text-center">
@@ -853,7 +853,7 @@ function RapidFireScreen({ live }: { live: LiveDisplay }) {
 
 /** Champions / Final Results Screen */
 function WinnerScreen({ live }: { live: LiveDisplay }) {
-  const scores = live.scores ?? [];
+  const scores = [...(live.scores ?? [])].sort((a, b) => b.score - a.score);
   const champ = scores[0];
 
   return (
@@ -890,13 +890,14 @@ function BottomScoreboardDock({
   deltas: ScoreDelta[];
 }) {
   if (scores.length === 0) return null;
+  const maxScore = Math.max(0, ...scores.map((s) => s.score));
 
   return (
     <footer className="relative z-30 border-t-2 border-white/10 bg-slate-950/85 px-8 py-4 shadow-[0_-15px_40px_rgba(0,0,0,0.6)] backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-4">
         {scores.map((team, idx) => {
           const isActive = activeTeamId === team.id;
-          const isLeader = idx === 0;
+          const isLeader = team.score > 0 && team.score === maxScore;
           const teamDeltas = deltas.filter((d) => d.teamId === team.id);
 
           return (
@@ -926,7 +927,7 @@ function BottomScoreboardDock({
                 ))}
               </div>
 
-              {/* Rank / Crown */}
+              {/* Team Index (Preserved Order) */}
               <span
                 className={`flex h-8 w-8 items-center justify-center rounded-lg text-sm font-black ${
                   isLeader

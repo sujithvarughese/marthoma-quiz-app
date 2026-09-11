@@ -179,7 +179,7 @@ export async function saveSession(session: SessionState): Promise<void> {
   const batch = db().batch();
 
   batch.set(gameRef(), {
-    ...toGameDoc(session),
+    ...clean(toGameDoc(session)),
     updatedAt: FieldValue.serverTimestamp(),
   });
 

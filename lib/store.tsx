@@ -582,11 +582,13 @@ function reducer(state: HostState, action: Action): HostState {
  * ------------------------------------------------------------------ */
 
 function scoresOf(session: SessionState): LiveScore[] {
-  return rankedTeams(session.teams).map((t) => ({
-    id: t.id,
-    name: t.name,
-    score: t.score,
-  }));
+  return [...session.teams]
+    .sort((a, b) => a.order - b.order)
+    .map((t) => ({
+      id: t.id,
+      name: t.name,
+      score: t.score,
+    }));
 }
 
 function roundsSummaryOf(content: GameContent, session: SessionState): LiveRoundSummary[] {

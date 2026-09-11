@@ -53,6 +53,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
     if (entry === ADMIN_PASSWORD) {
       try {
         sessionStorage.setItem(UNLOCK_KEY, "1");
+        localStorage.setItem("church-quiz-app:hostCode", entry);
       } catch {
         /* ignore */
       }
