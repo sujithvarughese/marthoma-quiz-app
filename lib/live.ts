@@ -16,6 +16,7 @@
 export type DisplayScreen =
   | "welcome"
   | "scoreboard"
+  | "rounds"
   | "board"
   | "question"
   | "answer"
@@ -28,6 +29,17 @@ export interface LiveTimer {
   endsAt: number | null;
   /** Total duration (s) so the display can render a full ring/bar. */
   durationSeconds: number | null;
+}
+
+/** Summary of each round/category for the categories screen. */
+export interface LiveRoundSummary {
+  id: string;
+  order: number;
+  name: string;
+  description?: string;
+  type: "standard" | "picture" | "rapid_fire";
+  totalQuestions: number;
+  remainingQuestions: number;
 }
 
 /** One board tile as the audience should see it. */
@@ -61,6 +73,8 @@ export interface LiveDisplay {
 
   roundId: string | null;
   roundName: string | null;
+  roundDescription?: string | null;
+  roundOrder?: number | null;
 
   questionId: string | null;
   /** Position of the current question within the round (1-based). */
@@ -78,6 +92,9 @@ export interface LiveDisplay {
   message: string | null;
 
   timer: LiveTimer;
+
+  /** Categories/rounds summary for "rounds" screen (or null). */
+  rounds?: LiveRoundSummary[] | null;
 
   /** Board tiles for the "board" screen (null on other screens). */
   board: LiveBoardTile[] | null;
@@ -112,6 +129,7 @@ export function welcomeLive(name: string, subtitle: string): LiveDisplay {
     activeTeamName: null,
     message: `${subtitle} — ${name}`,
     timer: IDLE_TIMER,
+    rounds: null,
     board: null,
     scores: null,
     rapidFire: null,
@@ -123,6 +141,7 @@ export function isDisplayScreen(v: unknown): v is DisplayScreen {
   return (
     v === "welcome" ||
     v === "scoreboard" ||
+    v === "rounds" ||
     v === "board" ||
     v === "question" ||
     v === "answer" ||

@@ -47,9 +47,9 @@ export const DEFAULT_SETTINGS: GameSettings = {
   picturePoints: 10,
   rapidFirePoints: 5,
 
-  normalAnswerSeconds: 20,
-  stealAnswerSeconds: 10,
-  pictureAnswerSeconds: 15,
+  normalAnswerSeconds: 30,
+  stealAnswerSeconds: 20,
+  pictureAnswerSeconds: 30,
   rapidFireSeconds: 60,
 
   rapidFireQuestionCount: 6,

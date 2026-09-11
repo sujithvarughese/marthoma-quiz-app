@@ -37,3 +37,318 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 1.5rem;
 }
+
+/* 3D Perspective and Card Animations for Projector */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.perspective-1500 {
+  perspective: 1500px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+@keyframes cardFoldOut {
+  0% {
+    opacity: 0;
+    transform: perspective(1200px) rotateY(-65deg) rotateX(15deg) scale(0.35);
+    filter: blur(4px) brightness(1.5);
+  }
+  60% {
+    opacity: 1;
+    transform: perspective(1200px) rotateY(8deg) rotateX(-2deg) scale(1.02);
+    filter: blur(0px) brightness(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(1200px) rotateY(0deg) rotateX(0deg) scale(1);
+    filter: blur(0px) brightness(1);
+  }
+}
+
+@keyframes answerReveal {
+  0% {
+    opacity: 0;
+    transform: perspective(1000px) rotateX(-80deg) scale(0.85);
+    filter: blur(3px);
+  }
+  70% {
+    opacity: 1;
+    transform: perspective(1000px) rotateX(8deg) scale(1.02);
+    filter: blur(0px);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(1000px) rotateX(0deg) scale(1);
+    filter: blur(0px);
+  }
+}
+
+@keyframes floatUpFade {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.6);
+  }
+  18% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.25);
+  }
+  35% {
+    transform: translateY(-12px) scale(1);
+  }
+  75% {
+    opacity: 1;
+    transform: translateY(-28px) scale(0.95);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-44px) scale(0.8);
+  }
+}
+
+@keyframes floatDownFade {
+  0% {
+    opacity: 0;
+    transform: translateY(-18px) scale(0.6);
+  }
+  18% {
+    opacity: 1;
+    transform: translateY(2px) scale(1.25);
+  }
+  35% {
+    transform: translateY(12px) scale(1);
+  }
+  75% {
+    opacity: 1;
+    transform: translateY(28px) scale(0.95);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(44px) scale(0.8);
+  }
+}
+
+@keyframes scorePulseUp {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.35);
+    color: #34d399;
+    text-shadow: 0 0 20px rgba(52, 211, 153, 0.9);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes scorePulseDown {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.35);
+    color: #f43f5e;
+    text-shadow: 0 0 20px rgba(244, 63, 94, 0.9);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes goldGlowPulse {
+  0%, 100% {
+    box-shadow: 0 0 25px rgba(251, 191, 36, 0.4), inset 0 0 15px rgba(251, 191, 36, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 45px rgba(251, 191, 36, 0.7), inset 0 0 25px rgba(251, 191, 36, 0.4);
+  }
+}
+
+@keyframes spotlightRotate {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.15);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+.animate-card-foldout {
+  animation: cardFoldOut 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: center center;
+}
+
+.animate-answer-reveal {
+  animation: answerReveal 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: top center;
+}
+
+.animate-score-delta-up {
+  animation: floatUpFade 2.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.animate-score-delta-down {
+  animation: floatDownFade 2.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.animate-score-bump-up {
+  animation: scorePulseUp 0.8s ease-out;
+}
+
+.animate-score-bump-down {
+  animation: scorePulseDown 0.8s ease-out;
+}
+
+.animate-gold-pulse {
+  animation: goldGlowPulse 2.5s infinite ease-in-out;
+}
+
+@keyframes cardLaunchFromTile {
+  0% {
+    opacity: 0.95;
+    transform: translate3d(var(--launch-x, 0px), var(--launch-y, 0px), 0) scale(var(--launch-scale, 0.16)) rotateY(-18deg) rotateX(8deg);
+  }
+  30% {
+    opacity: 1;
+    transform: translate3d(calc(var(--launch-x, 0px) * 0.65), calc(var(--launch-y, 0px) * 0.65), 0) scale(0.42) rotateY(-8deg) rotateX(4deg);
+  }
+  70% {
+    opacity: 1;
+    transform: translate3d(calc(var(--launch-x, 0px) * 0.12), calc(var(--launch-y, 0px) * 0.12), 0) scale(0.94) rotateY(3deg) rotateX(-2deg);
+  }
+  88% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1.02) rotateY(-1deg) rotateX(1deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1) rotateY(0deg) rotateX(0deg);
+  }
+}
+
+@keyframes tileFlashChosen {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0px rgba(251, 191, 36, 0);
+  }
+  30% {
+    transform: scale(1.15);
+    box-shadow: 0 0 50px rgba(251, 191, 36, 0.9), inset 0 0 25px rgba(251, 191, 36, 0.5);
+    border-color: #fbbf24;
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 25px rgba(251, 191, 36, 0.4);
+  }
+}
+
+@keyframes categoryGrandReveal {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 30px, 0) scale(0.85);
+  }
+  60% {
+    opacity: 1;
+    transform: translate3d(0, -6px, 0) scale(1.03);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes categoryBannerEntrance {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -35px, 0) scale(0.95);
+  }
+  70% {
+    opacity: 1;
+    transform: translate3d(0, 4px, 0) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes categoryCardSelectPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+  }
+  30% {
+    transform: scale(1.06) translateY(-4px);
+    box-shadow: 0 0 50px rgba(251, 191, 36, 0.8), 0 0 20px rgba(251, 191, 36, 0.5);
+    border-color: #fbbf24;
+  }
+  100% {
+    transform: scale(1.03) translateY(-2px);
+    box-shadow: 0 0 35px rgba(251, 191, 36, 0.5);
+    border-color: #f59e0b;
+  }
+}
+
+@keyframes boardTileCascade {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 25px, 0) scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.animate-card-launch {
+  animation: cardLaunchFromTile 0.72s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: center center;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
+.animate-tile-chosen {
+  animation: tileFlashChosen 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform;
+}
+
+.animate-category-reveal {
+  animation: categoryGrandReveal 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.animate-category-banner {
+  animation: categoryBannerEntrance 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.animate-category-chosen {
+  animation: categoryCardSelectPulse 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-board-cascade {
+  animation: boardTileCascade 0.65s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.text-glow {
+  text-shadow: 0 0 20px currentColor;
+}
+
+.text-glow-gold {
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8), 0 0 25px rgba(251, 191, 36, 0.6);
+}
+
+.text-glow-cyan {
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8), 0 0 25px rgba(56, 189, 248, 0.6);
+}

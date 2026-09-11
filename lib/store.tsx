@@ -26,6 +26,7 @@ import {
 import {
   IDLE_TIMER,
   type LiveDisplay,
+  type LiveRoundSummary,
   type LiveScore,
   type LiveTimer,
 } from "./live";
@@ -225,7 +226,29 @@ function reducer(state: HostState, action: Action): HostState {
       return { ...state, content: action.content };
 
     case "HYDRATE_SESSION": {
-      const s = action.session;
+      const s = {
+        ...action.session,
+        settings: {
+          ...DEFAULT_SETTINGS,
+          ...(action.session.settings || {}),
+          // Enforce 30s per question / 20s steal defaults even if old save had 20/10
+          normalAnswerSeconds:
+            action.session.settings?.normalAnswerSeconds &&
+            action.session.settings.normalAnswerSeconds > 20
+              ? action.session.settings.normalAnswerSeconds
+              : 30,
+          stealAnswerSeconds:
+            action.session.settings?.stealAnswerSeconds &&
+            action.session.settings.stealAnswerSeconds > 10
+              ? action.session.settings.stealAnswerSeconds
+              : 20,
+          pictureAnswerSeconds:
+            action.session.settings?.pictureAnswerSeconds &&
+            action.session.settings.pictureAnswerSeconds > 15
+              ? action.session.settings.pictureAnswerSeconds
+              : 30,
+        },
+      };
       const view: HostView =
         s.status === "not_started"
           ? "setup"
@@ -351,9 +374,10 @@ function reducer(state: HostState, action: Action): HostState {
       const round = currentRound(state);
       if (!q || !round || isUsed(state, q.id)) return state;
       const isPicture = round.type === "picture";
-      const seconds = isPicture
+      const rawSeconds = isPicture
         ? state.session.settings.pictureAnswerSeconds
         : state.session.settings.normalAnswerSeconds;
+      const seconds = rawSeconds && rawSeconds > 20 ? rawSeconds : 30;
       return {
         ...state,
         session: {
@@ -394,11 +418,13 @@ function reducer(state: HostState, action: Action): HostState {
 
     case "OPEN_STEAL": {
       if (!state.session) return state;
+      const rawSteal = state.session.settings.stealAnswerSeconds;
+      const stealSeconds = rawSteal && rawSteal > 10 ? rawSteal : 20;
       return {
         ...state,
         stealing: true,
         revealed: false,
-        timer: startTimer(state.session.settings.stealAnswerSeconds),
+        timer: startTimer(stealSeconds),
       };
     }
 
@@ -563,6 +589,19 @@ function scoresOf(session: SessionState): LiveScore[] {
   }));
 }
 
+function roundsSummaryOf(content: GameContent, session: SessionState): LiveRoundSummary[] {
+  const used = new Set(session.usedQuestionIds);
+  return content.rounds.map((r) => ({
+    id: r.id,
+    order: r.order,
+    name: r.name,
+    description: r.description,
+    type: r.type,
+    totalQuestions: r.questionIds.length,
+    remainingQuestions: r.questionIds.filter((id) => !used.has(id)).length,
+  }));
+}
+
 export function buildLive(state: HostState): LiveDisplay | null {
   const { session, content } = state;
   if (!session || !content) return null;
@@ -581,6 +620,7 @@ export function buildLive(state: HostState): LiveDisplay | null {
     activeTeamName: null,
     message: null,
     timer: state.timer,
+    rounds: roundsSummaryOf(content, session),
     board: null,
     scores: scoresOf(session),
     rapidFire: null,
@@ -596,7 +636,7 @@ export function buildLive(state: HostState): LiveDisplay | null {
       return { ...base, screen: "welcome", message: `${session.subtitle} — ${session.name}`, timer: IDLE_TIMER };
 
     case "home":
-      return { ...base, screen: "scoreboard", message: "Get ready…", timer: IDLE_TIMER };
+      return { ...base, screen: "rounds", message: "Choose a Round", timer: IDLE_TIMER };
 
     case "scoreboard":
       return { ...base, screen: "scoreboard", timer: IDLE_TIMER };
@@ -614,7 +654,10 @@ export function buildLive(state: HostState): LiveDisplay | null {
       return {
         ...base,
         screen: "board",
+        roundId: round.id,
         roundName: round.name,
+        roundDescription: round.description ?? null,
+        roundOrder: round.order,
         activeTeamId: team?.id ?? null,
         activeTeamName: team?.name ?? null,
         board,
@@ -626,10 +669,18 @@ export function buildLive(state: HostState): LiveDisplay | null {
       if (!q || !round) return base;
       const number = round.questionIds.indexOf(q.id) + 1;
       const screen = state.revealed ? "answer" : "question";
+      const board = round.questionIds.map((id, i) => ({
+        questionId: id,
+        order: i + 1,
+        used: session.usedQuestionIds.includes(id),
+      }));
       return {
         ...base,
         screen,
+        roundId: round.id,
         roundName: round.name,
+        roundDescription: round.description ?? null,
+        roundOrder: round.order,
         questionId: q.id,
         questionNumber: number,
         question: q.question,
@@ -639,6 +690,7 @@ export function buildLive(state: HostState): LiveDisplay | null {
         activeTeamId: state.stealing ? null : team?.id ?? null,
         activeTeamName: state.stealing ? null : team?.name ?? null,
         message: state.stealing ? "Open to steal!" : null,
+        board,
       };
     }
 
@@ -646,17 +698,26 @@ export function buildLive(state: HostState): LiveDisplay | null {
       if (!q || !round) return base;
       const number = round.questionIds.indexOf(q.id) + 1;
       const screen = state.revealed ? "answer" : "question";
+      const board = round.questionIds.map((id, i) => ({
+        questionId: id,
+        order: i + 1,
+        used: session.usedQuestionIds.includes(id),
+      }));
       return {
         ...base,
         screen,
+        roundId: round.id,
         roundName: round.name,
+        roundDescription: round.description ?? null,
+        roundOrder: round.order,
         questionId: q.id,
         questionNumber: number,
         question: q.question,
         answer: state.revealed ? q.answer : null,
-        imageUrl: q.imageUrl,
+        imageUrl: q.imageUrl ?? null,
         showAnswer: state.revealed,
         message: "Everyone plays — whiteboards ready!",
+        board,
       };
     }
 
@@ -723,6 +784,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const hydratedRef = useRef(false);
   const sessionTimer = useRef<number | null>(null);
   const liveTimer = useRef<number | null>(null);
+  const latestLiveRef = useRef<LiveDisplay | null>(null);
+  const publishInFlightRef = useRef(false);
+  const publishPendingRef = useRef(false);
+  const publishRetryTimer = useRef<number | null>(null);
 
   // Initial load: content (client SDK) + session (server route).
   useEffect(() => {
@@ -786,15 +851,52 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (!hydratedRef.current) return;
     const live = buildLive(state);
     if (!live) return;
+    latestLiveRef.current = live;
+
+    const doPublish = async () => {
+      if (publishInFlightRef.current) {
+        publishPendingRef.current = true;
+        return;
+      }
+      publishInFlightRef.current = true;
+      publishPendingRef.current = false;
+      const toSend = latestLiveRef.current;
+      if (!toSend) {
+        publishInFlightRef.current = false;
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/live", {
+          method: "PUT",
+          headers: hostHeaders(),
+          body: JSON.stringify(toSend),
+        });
+        if (!res.ok) {
+          throw new Error(`Publish failed with status ${res.status}`);
+        }
+      } catch (err) {
+        console.warn("Live publish failed, will retry:", err);
+        if (publishRetryTimer.current) window.clearTimeout(publishRetryTimer.current);
+        publishRetryTimer.current = window.setTimeout(() => {
+          void doPublish();
+        }, 1000);
+      } finally {
+        publishInFlightRef.current = false;
+        if (publishPendingRef.current) {
+          void doPublish();
+        }
+      }
+    };
+
     if (liveTimer.current) window.clearTimeout(liveTimer.current);
     liveTimer.current = window.setTimeout(() => {
-      void fetch("/api/live", {
-        method: "PUT",
-        headers: hostHeaders(),
-        body: JSON.stringify(live),
-      }).catch(() => {});
+      void doPublish();
     }, LIVE_DEBOUNCE_MS);
-    // Recompute when any of these change.
+
+    return () => {
+      if (liveTimer.current) window.clearTimeout(liveTimer.current);
+    };
   }, [state]);
 
   const setHostCode = useCallback((code: string) => {

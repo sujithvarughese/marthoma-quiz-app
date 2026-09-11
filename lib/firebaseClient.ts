@@ -75,23 +75,99 @@ export async function loadContent(): Promise<GameContent> {
 
 /**
  * Subscribe to the projector doc. `cb` fires on every change; returns an
- * unsubscribe function. Invalid/absent docs yield null.
+ * unsubscribe function. Automatically reconnects on snapshot error, network
+ * recovery, or tab focus.
  */
 export function subscribeLive(
   cb: (live: LiveDisplay | null) => void,
 ): () => void {
-  const ref = doc(collection(gameRef(), "live"), "display");
-  return onSnapshot(
-    ref,
-    (snap) => {
-      const data = snap.data();
-      cb(data && isLiveDisplay(data) ? (data as LiveDisplay) : null);
-    },
-    (err) => {
-      console.error("live subscription error:", err);
-      cb(null);
-    },
-  );
+  let unsub: (() => void) | null = null;
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  let destroyed = false;
+  let retryDelay = 1000;
+
+  function connect() {
+    if (destroyed) return;
+    try {
+      const ref = doc(collection(gameRef(), "live"), "display");
+      unsub = onSnapshot(
+        ref,
+        (snap) => {
+          retryDelay = 1000;
+          const data = snap.data();
+          cb(data && isLiveDisplay(data) ? (data as LiveDisplay) : null);
+        },
+        (err) => {
+          console.warn("live subscription error, scheduling reconnect:", err);
+          if (unsub) {
+            try {
+              unsub();
+            } catch {}
+            unsub = null;
+          }
+          if (!destroyed) {
+            if (retryTimer) clearTimeout(retryTimer);
+            retryTimer = setTimeout(() => {
+              connect();
+            }, retryDelay);
+            retryDelay = Math.min(retryDelay * 2, 10000);
+          }
+        },
+      );
+    } catch (err) {
+      console.warn("Failed to attach live snapshot, retrying:", err);
+      if (!destroyed) {
+        if (retryTimer) clearTimeout(retryTimer);
+        retryTimer = setTimeout(() => {
+          connect();
+        }, retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 10000);
+      }
+    }
+  }
+
+  connect();
+
+  function onReconnectTrigger() {
+    if (destroyed) return;
+    if (retryTimer) {
+      clearTimeout(retryTimer);
+      retryTimer = null;
+    }
+    if (unsub) {
+      try {
+        unsub();
+      } catch {}
+      unsub = null;
+    }
+    retryDelay = 1000;
+    connect();
+  }
+
+  if (typeof window !== "undefined") {
+    window.addEventListener("online", onReconnectTrigger);
+    window.addEventListener("focus", onReconnectTrigger);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        onReconnectTrigger();
+      }
+    });
+  }
+
+  return () => {
+    destroyed = true;
+    if (retryTimer) clearTimeout(retryTimer);
+    if (unsub) {
+      try {
+        unsub();
+      } catch {}
+      unsub = null;
+    }
+    if (typeof window !== "undefined") {
+      window.removeEventListener("online", onReconnectTrigger);
+      window.removeEventListener("focus", onReconnectTrigger);
+    }
+  };
 }
 
 /** Subscribe to team scores (ordered). Returns an unsubscribe function. */
