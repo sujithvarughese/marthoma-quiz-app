@@ -121,21 +121,22 @@ export function RapidFire() {
             {current?.question}
           </p>
 
-          {rapid.revealed ? (
-            <p className="mt-6 text-3xl font-black text-emerald-300">
+          <div className="mt-6 rounded-2xl border-2 border-emerald-500/50 bg-emerald-500/10 px-6 py-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-emerald-400">
+              Correct Answer
+            </p>
+            <p className="mt-1 text-2xl font-black text-emerald-200 sm:text-3xl">
               {current?.answer}
             </p>
-          ) : (
-            <div className="mt-6">
-              <Button
-                size="md"
-                variant="ghost"
-                onClick={() => dispatch({ type: "RAPID_REVEAL" })}
-              >
-                Peek answer
-              </Button>
-            </div>
-          )}
+            {current?.funFact && (
+              <div className="mt-3 border-t border-emerald-500/30 pt-3">
+                <p className="text-xs font-bold uppercase tracking-widest text-emerald-400">
+                  Fun fact — say it aloud
+                </p>
+                <p className="mt-1 text-base text-emerald-100">{current.funFact}</p>
+              </div>
+            )}
+          </div>
 
           <div className="mt-8 grid grid-cols-2 gap-4">
             <Button

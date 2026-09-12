@@ -72,6 +72,7 @@ export interface HostState {
   revealed: boolean; // answer shown
   stealing: boolean; // standard round: open-steal phase
   pictureCorrect: string[]; // picture round: team ids marked correct
+  awarded: boolean; // points already awarded for current question
 
   rapid: RapidState | null;
   timer: HostTimer;
@@ -199,6 +200,7 @@ const CLEARED = {
   stealing: false,
   pictureCorrect: [] as string[],
   timer: IDLE_TIMER,
+  awarded: false,
 } as const;
 
 /* ------------------------------------------------------------------ *
@@ -217,6 +219,7 @@ function makeInitialState(): HostState {
     pictureCorrect: [],
     rapid: null,
     timer: IDLE_TIMER,
+    awarded: false,
   };
 }
 
@@ -307,7 +310,12 @@ function reducer(state: HostState, action: Action): HostState {
       if (!state.session) return state;
       return {
         ...state,
-        session: { ...state.session, status: "active" },
+        session: {
+          ...state.session,
+          status: "active",
+          currentRoundId: null,
+          currentQuestionId: null,
+        },
         view: "home",
         ...CLEARED,
       };
@@ -336,7 +344,15 @@ function reducer(state: HostState, action: Action): HostState {
 
     /* ---- navigation ---- */
     case "GO_HOME":
-      return { ...state, view: "home", rapid: null, ...CLEARED };
+      return {
+        ...state,
+        session: state.session
+          ? { ...state.session, currentRoundId: null, currentQuestionId: null }
+          : state.session,
+        view: "home",
+        rapid: null,
+        ...CLEARED,
+      };
 
     case "GO_SETUP":
       return { ...state, view: "setup", rapid: null, ...CLEARED };
@@ -390,15 +406,16 @@ function reducer(state: HostState, action: Action): HostState {
         revealed: false,
         stealing: false,
         pictureCorrect: [],
+        awarded: false,
         timer: startTimer(seconds),
       };
     }
 
     case "REVEAL_ANSWER":
-      return { ...state, revealed: true, timer: IDLE_TIMER };
+      return { ...state, revealed: true, stealing: false, timer: IDLE_TIMER };
 
     case "AWARD_CORRECT": {
-      if (!state.session) return state;
+      if (!state.session || state.awarded) return state;
       const team = activeTeam(state);
       if (!team) return state;
       return {
@@ -412,12 +429,13 @@ function reducer(state: HostState, action: Action): HostState {
           ),
         },
         revealed: true,
+        awarded: true,
         timer: IDLE_TIMER,
       };
     }
 
     case "OPEN_STEAL": {
-      if (!state.session) return state;
+      if (!state.session || state.awarded) return state;
       const rawSteal = state.session.settings.stealAnswerSeconds;
       const stealSeconds = rawSteal && rawSteal > 10 ? rawSteal : 20;
       return {
@@ -429,7 +447,7 @@ function reducer(state: HostState, action: Action): HostState {
     }
 
     case "AWARD_STEAL": {
-      if (!state.session) return state;
+      if (!state.session || state.awarded) return state;
       return {
         ...state,
         session: {
@@ -442,11 +460,13 @@ function reducer(state: HostState, action: Action): HostState {
         },
         stealing: false,
         revealed: true,
+        awarded: true,
         timer: IDLE_TIMER,
       };
     }
 
     case "TOGGLE_PICTURE_TEAM": {
+      if (state.awarded) return state;
       const has = state.pictureCorrect.includes(action.teamId);
       return {
         ...state,
@@ -457,7 +477,7 @@ function reducer(state: HostState, action: Action): HostState {
     }
 
     case "AWARD_PICTURE": {
-      if (!state.session) return state;
+      if (!state.session || state.awarded) return state;
       let teams = state.session.teams;
       for (const id of state.pictureCorrect) {
         teams = award(teams, id, state.session.settings.picturePoints);
@@ -466,6 +486,7 @@ function reducer(state: HostState, action: Action): HostState {
         ...state,
         session: { ...state.session, teams },
         revealed: true,
+        awarded: true,
         timer: IDLE_TIMER,
       };
     }
@@ -558,7 +579,15 @@ function reducer(state: HostState, action: Action): HostState {
       };
 
     case "EXIT_RAPIDFIRE":
-      return { ...state, view: "home", rapid: null, ...CLEARED };
+      return {
+        ...state,
+        session: state.session
+          ? { ...state.session, currentRoundId: null, currentQuestionId: null }
+          : state.session,
+        view: "home",
+        rapid: null,
+        ...CLEARED,
+      };
 
     /* ---- score admin ---- */
     case "ADJUST_SCORE": {
@@ -638,7 +667,23 @@ export function buildLive(state: HostState): LiveDisplay | null {
       return { ...base, screen: "welcome", message: `${session.subtitle} — ${session.name}`, timer: IDLE_TIMER };
 
     case "home":
-      return { ...base, screen: "rounds", message: "Choose a Round", timer: IDLE_TIMER };
+      return {
+        ...base,
+        screen: "rounds",
+        roundId: null,
+        roundName: null,
+        roundDescription: null,
+        questionId: null,
+        questionNumber: null,
+        question: null,
+        answer: null,
+        imageUrl: null,
+        showAnswer: false,
+        activeTeamId: null,
+        activeTeamName: null,
+        message: "Choose a Round",
+        timer: IDLE_TIMER,
+      };
 
     case "scoreboard":
       return { ...base, screen: "scoreboard", timer: IDLE_TIMER };

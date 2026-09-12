@@ -25,7 +25,7 @@ export function QuestionView() {
   if (!q || !round || !session) return null;
 
   const team = activeTeam(state);
-  const { revealed, stealing, timer } = state;
+  const { revealed, stealing, timer, awarded } = state;
   const { correctPoints, stealPoints, allowSteals } = session.settings;
   const stealCandidates = session.teams.filter((t) => t.id !== team?.id);
 
@@ -48,31 +48,35 @@ export function QuestionView() {
           {q.question}
         </p>
 
-        <div className="mt-8">
-          {revealed ? (
-            <div className="rounded-2xl border-2 border-emerald-500/50 bg-emerald-500/10 px-6 py-5">
+        <div className="mt-8 rounded-2xl border-2 border-emerald-500/50 bg-emerald-500/10 px-6 py-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
               <p className="text-sm font-bold uppercase tracking-widest text-emerald-400">
-                Answer
+                Correct Answer
               </p>
               <p className="mt-1 text-3xl font-black text-emerald-200 sm:text-4xl">
                 {q.answer}
               </p>
             </div>
-          ) : (
-            <Button size="lg" onClick={() => dispatch({ type: "REVEAL_ANSWER" })}>
-              Reveal answer
+            <Button
+              variant={revealed ? "neutral" : "primary"}
+              size="md"
+              disabled={revealed}
+              onClick={() => dispatch({ type: "REVEAL_ANSWER" })}
+            >
+              {revealed ? "✓ Revealed on Display" : "👁 Reveal on Display"}
             </Button>
+          </div>
+
+          {q.funFact && (
+            <div className="mt-4 border-t border-emerald-500/30 pt-4">
+              <p className="text-xs font-bold uppercase tracking-widest text-emerald-400">
+                Fun fact — say it aloud
+              </p>
+              <p className="mt-1 text-lg text-emerald-100">{q.funFact}</p>
+            </div>
           )}
         </div>
-
-        {q.funFact && (
-          <div className="mt-6 rounded-2xl border border-sky-500/30 bg-sky-500/10 px-5 py-4">
-            <p className="text-xs font-bold uppercase tracking-widest text-sky-300">
-              Fun fact — say it aloud
-            </p>
-            <p className="mt-1 text-lg text-sky-100">{q.funFact}</p>
-          </div>
-        )}
       </div>
 
       {/* Timer + controls */}
@@ -92,6 +96,7 @@ export function QuestionView() {
                 <Button
                   variant="success"
                   size="lg"
+                  disabled={awarded}
                   onClick={() => dispatch({ type: "AWARD_CORRECT" })}
                 >
                   ✓ {team.name} correct (+{correctPoints})
@@ -101,6 +106,7 @@ export function QuestionView() {
                 <Button
                   variant="amber"
                   size="md"
+                  disabled={awarded}
                   onClick={() => dispatch({ type: "OPEN_STEAL" })}
                 >
                   ✗ Missed — open to steal (+{stealPoints})
@@ -119,6 +125,7 @@ export function QuestionView() {
                     key={t.id}
                     variant="neutral"
                     size="sm"
+                    disabled={awarded}
                     onClick={() =>
                       dispatch({ type: "AWARD_STEAL", teamId: t.id })
                     }

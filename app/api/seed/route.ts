@@ -86,7 +86,7 @@ function buildContent(): { rounds: RoundDoc[]; questions: QuestionDoc[] } {
         question: q.question,
         answer: q.answer,
         imageUrl: q.imageUrl ?? null,
-        funFact: "",
+        funFact: q.funFact ?? "",
       });
     });
   }
@@ -101,7 +101,7 @@ function buildContent(): { rounds: RoundDoc[]; questions: QuestionDoc[] } {
       question: q.question,
       answer: q.answer,
       imageUrl: null,
-      funFact: "",
+      funFact: q.funFact ?? "",
     });
   });
 

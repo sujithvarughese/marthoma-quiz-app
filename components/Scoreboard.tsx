@@ -1,59 +1,77 @@
 "use client";
 
-import { useGame } from "@/lib/store";
+import { activeTeam, useGame } from "@/lib/store";
 
 /**
  * Always-visible scoreboard across the bottom of the host screen.
- * Displays teams in their original roster order as entered on the home/setup screen.
+ * Displays teams in their original roster order as entered on the home/setup screen,
+ * matching the layout and styling of the display route scoreboard dock.
  */
 export function Scoreboard() {
-  const { session } = useGame();
+  const state = useGame();
+  const { session } = state;
+  const currentActiveTeam = activeTeam(state);
   const teams = session?.teams
     ? [...session.teams].sort((a, b) => a.order - b.order)
     : [];
   const maxScore = Math.max(0, ...teams.map((t) => t.score));
 
-  return (
-    <footer className="shrink-0 border-t border-white/10 bg-black/40 px-4 py-3 backdrop-blur">
-      {teams.length === 0 ? (
+  if (teams.length === 0) {
+    return (
+      <footer className="shrink-0 border-t-2 border-white/10 bg-slate-950/85 px-8 py-4 shadow-[0_-15px_40px_rgba(0,0,0,0.6)] backdrop-blur-xl">
         <p className="py-2 text-center text-lg font-semibold text-slate-400">
           No teams yet — add teams on the setup screen.
         </p>
-      ) : (
-        <div className="flex gap-3 overflow-x-auto">
-          {teams.map((team, idx) => {
-            const isLeader = team.score > 0 && team.score === maxScore;
-            return (
-              <div
-                key={team.id}
-                className={`flex min-w-[9rem] flex-1 items-center justify-between gap-3 rounded-2xl px-4 py-2 ${
+      </footer>
+    );
+  }
+
+  return (
+    <footer className="relative z-30 shrink-0 border-t-2 border-white/10 bg-slate-950/85 px-8 py-4 shadow-[0_-15px_40px_rgba(0,0,0,0.6)] backdrop-blur-xl">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-4">
+        {teams.map((team, idx) => {
+          const isActive = currentActiveTeam?.id === team.id;
+          const isLeader = team.score > 0 && team.score === maxScore;
+
+          return (
+            <div
+              key={team.id}
+              className={`relative flex items-center gap-3 rounded-2xl border px-5 py-2.5 transition-all ${
+                isLeader
+                  ? "border-amber-400/80 bg-amber-500/15 shadow-[0_0_20px_rgba(251,191,36,0.2)]"
+                  : isActive
+                    ? "border-emerald-400/80 bg-emerald-500/15 shadow-[0_0_20px_rgba(16,185,129,0.2)] ring-2 ring-emerald-400/40"
+                    : "border-white/10 bg-white/5"
+              }`}
+            >
+              {/* Team Index (Preserved Order) */}
+              <span
+                className={`flex h-8 w-8 items-center justify-center rounded-lg text-sm font-black ${
                   isLeader
-                    ? "bg-amber-400/15 ring-2 ring-amber-400/60"
-                    : "bg-white/5"
+                    ? "bg-amber-400 text-slate-950"
+                    : "bg-slate-800 text-slate-300"
                 }`}
               >
-                <div className="flex min-w-0 items-center gap-2">
-                  <span
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lg font-black ${
-                      isLeader
-                        ? "bg-amber-400 text-slate-900"
-                        : "bg-slate-700 text-white"
-                    }`}
-                  >
-                    {idx + 1}
-                  </span>
-                  <span className="truncate text-lg font-bold sm:text-xl">
-                    {team.name}
-                  </span>
-                </div>
-                <span className="shrink-0 font-mono text-3xl font-black tabular-nums sm:text-4xl">
-                  {team.score}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      )}
+                {isLeader ? "👑" : idx + 1}
+              </span>
+
+              {/* Team Name */}
+              <span className="text-xl font-black tracking-wide text-white">
+                {team.name}
+              </span>
+
+              {/* Team Score */}
+              <span
+                className={`font-mono text-2xl font-black tabular-nums ${
+                  isLeader ? "text-amber-300" : "text-slate-200"
+                }`}
+              >
+                {team.score}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </footer>
   );
 }

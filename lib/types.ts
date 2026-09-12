@@ -8,6 +8,7 @@ export interface Question {
   points: number;
   question: string;
   answer: string;
+  funFact?: string;
   /** Only used by the Picture Round. Path in /public or a full URL. */
   imageUrl?: string;
   /** Flipped to true once revealed during play so it isn't picked again. */

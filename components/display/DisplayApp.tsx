@@ -339,33 +339,9 @@ function WelcomeScreen({ live }: { live: LiveDisplay }) {
 /** Categories / Choose a Round Screen */
 function RoundsScreen({ live }: { live: LiveDisplay }) {
   const rounds = live.rounds ?? [];
-  const selectedRound = rounds.find((r) => r.id === live.roundId);
 
   return (
     <div className="relative flex flex-1 flex-col justify-between p-10 pb-6">
-      {/* Category Selection Announcement Overlay when host picks a round */}
-      {selectedRound && (
-        <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-slate-950/80 backdrop-blur-md">
-          <div className="animate-category-reveal flex max-w-3xl flex-col items-center gap-6 rounded-3xl border-4 border-amber-400/80 bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-950 p-12 text-center shadow-[0_0_80px_rgba(251,191,36,0.5)]">
-            <div className="rounded-full border border-amber-400/60 bg-amber-400/20 px-6 py-2 text-xl font-black uppercase tracking-widest text-amber-300 shadow-md">
-              ✨ Category Selected
-            </div>
-            <h2 className="text-6xl font-black text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.9)]">
-              {selectedRound.name}
-            </h2>
-            {selectedRound.description && (
-              <p className="text-2xl font-semibold text-slate-200">
-                {selectedRound.description}
-              </p>
-            )}
-            <div className="mt-4 flex items-center gap-3 text-lg font-bold text-amber-300">
-              <span className="h-3 w-3 animate-ping rounded-full bg-amber-400" />
-              Loading question board…
-            </div>
-          </div>
-        </div>
-      )}
-
       <header className="flex flex-wrap items-center justify-between gap-6">
         <div>
           <div className="inline-block rounded-lg border border-indigo-400/40 bg-indigo-500/20 px-4 py-1.5 text-lg font-black uppercase tracking-widest text-indigo-300">

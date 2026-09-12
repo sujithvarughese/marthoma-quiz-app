@@ -27,7 +27,7 @@ export function PictureView() {
   const session = state.session;
   if (!q || !round || !session) return null;
 
-  const { revealed, pictureCorrect, timer } = state;
+  const { revealed, pictureCorrect, timer, awarded } = state;
   const { picturePoints } = session.settings;
   const selected = new Set(pictureCorrect);
 
@@ -52,31 +52,35 @@ export function PictureView() {
           {q.question}
         </p>
 
-        <div className="mt-8">
-          {revealed ? (
-            <div className="rounded-2xl border-2 border-emerald-500/50 bg-emerald-500/10 px-6 py-5">
+        <div className="mt-8 rounded-2xl border-2 border-emerald-500/50 bg-emerald-500/10 px-6 py-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
               <p className="text-sm font-bold uppercase tracking-widest text-emerald-400">
-                Answer
+                Correct Answer
               </p>
               <p className="mt-1 text-3xl font-black text-emerald-200 sm:text-4xl">
                 {q.answer}
               </p>
             </div>
-          ) : (
-            <Button size="lg" onClick={() => dispatch({ type: "REVEAL_ANSWER" })}>
-              Reveal answer
+            <Button
+              variant={revealed ? "neutral" : "primary"}
+              size="md"
+              disabled={revealed}
+              onClick={() => dispatch({ type: "REVEAL_ANSWER" })}
+            >
+              {revealed ? "✓ Revealed on Display" : "👁 Reveal on Display"}
             </Button>
+          </div>
+
+          {q.funFact && (
+            <div className="mt-4 border-t border-emerald-500/30 pt-4">
+              <p className="text-xs font-bold uppercase tracking-widest text-emerald-400">
+                Fun fact — say it aloud
+              </p>
+              <p className="mt-1 text-lg text-emerald-100">{q.funFact}</p>
+            </div>
           )}
         </div>
-
-        {q.funFact && (
-          <div className="mt-6 rounded-2xl border border-sky-500/30 bg-sky-500/10 px-5 py-4">
-            <p className="text-xs font-bold uppercase tracking-widest text-sky-300">
-              Fun fact — say it aloud
-            </p>
-            <p className="mt-1 text-lg text-sky-100">{q.funFact}</p>
-          </div>
-        )}
       </div>
 
       <div className="flex flex-col gap-6">
@@ -101,6 +105,7 @@ export function PictureView() {
                   key={t.id}
                   variant={on ? "success" : "neutral"}
                   size="sm"
+                  disabled={awarded}
                   onClick={() =>
                     dispatch({ type: "TOGGLE_PICTURE_TEAM", teamId: t.id })
                   }
@@ -115,7 +120,7 @@ export function PictureView() {
           <Button
             variant="primary"
             size="md"
-            disabled={pictureCorrect.length === 0}
+            disabled={pictureCorrect.length === 0 || awarded}
             onClick={() => dispatch({ type: "AWARD_PICTURE" })}
           >
             Award +{picturePoints} to {pictureCorrect.length} team

@@ -35,6 +35,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "What global pandemic led to widespread lockdowns around the world beginning in 2020?",
         answer: "COVID-19",
+        funFact: "The World Health Organization officially named the disease COVID-19 in February 2020.",
         used: false,
       },
       {
@@ -42,6 +43,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Which country officially left the European Union in 2020?",
         answer: "The United Kingdom",
+        funFact: "The United Kingdom formally left the European Union on January 31, 2020, after 47 years of membership.",
         used: false,
       },
       {
@@ -49,6 +51,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "The 2020 Summer Olympics were postponed because of the pandemic and eventually held in 2021. Which city hosted them?",
         answer: "Tokyo, Japan",
+        funFact: "Although they were held in 2021, the Games kept the official name 'Tokyo 2020.'",
         used: false,
       },
       {
@@ -56,6 +59,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "What powerful space telescope was launched on Christmas Day in 2021?",
         answer: "The James Webb Space Telescope (JWST)",
+        funFact: "The James Webb Space Telescope's primary mirror is made of 18 gold-coated segments and is about 6.5 meters wide.",
         used: false,
       },
       {
@@ -63,6 +67,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Which British monarch died in September 2022 after reigning for more than 70 years?",
         answer: "Queen Elizabeth II",
+        funFact: "Queen Elizabeth II reigned for more than 70 years, making her the longest-reigning monarch in British history.",
         used: false,
       },
       {
@@ -70,6 +75,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Which country's Chandrayaan-3 mission successfully landed near the Moon's south polar region in 2023?",
         answer: "India",
+        funFact: "Chandrayaan-3 made India the first country to successfully land a spacecraft near the Moon's south polar region.",
         used: false,
       },
       {
@@ -77,6 +83,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Which city hosted the 2024 Summer Olympic Games?",
         answer: "Paris, France",
+        funFact: "Paris has hosted the Summer Olympics three times: 1900, 1924, and 2024.",
         used: false,
       },
       {
@@ -84,6 +91,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Which social media platform was renamed 'X' in 2023?",
         answer: "Twitter",
+        funFact: "Twitter launched in 2006 and was renamed X in 2023 after Elon Musk acquired the company.",
         used: false,
       },
       {
@@ -91,6 +99,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "What name did Cardinal Robert Francis Prevost choose after being elected pope in 2025?",
         answer: "Pope Leo XIV",
+        funFact: "Leo XIV became the 267th pope and the first pope from the Order of Saint Augustine.",
         used: false,
       },
       {
@@ -98,6 +107,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Pope Leo XIV made history in 2025 as the first pope born in which country?",
         answer: "The United States",
+        funFact: "Pope Leo XIV was born Robert Francis Prevost in Chicago, Illinois, in 1955.",
         used: false,
       },
     ],
@@ -113,6 +123,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "What is the largest planet in our solar system?",
         answer: "Jupiter",
+        funFact: "Jupiter is so large that more than 1,300 Earths could fit inside it by volume.",
         used: false,
       },
       {
@@ -120,6 +131,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "What is the chemical symbol for gold?",
         answer: "Au",
+        funFact: "The symbol Au comes from the Latin word for gold, 'aurum.'",
         used: false,
       },
       {
@@ -127,6 +139,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Which organ in the human body produces insulin?",
         answer: "The pancreas",
+        funFact: "Insulin is produced by beta cells found in structures in the pancreas called the islets of Langerhans.",
         used: false,
       },
       {
@@ -134,6 +147,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Which gas makes up the largest percentage of Earth's atmosphere?",
         answer: "Nitrogen",
+        funFact: "Nitrogen makes up about 78% of Earth's atmosphere, while oxygen accounts for about 21%.",
         used: false,
       },
       {
@@ -141,6 +155,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "How many players from one team are normally on the field at a time in soccer?",
         answer: "11",
+        funFact: "A soccer team normally has 11 players on the field, including one goalkeeper.",
         used: false,
       },
       {
@@ -148,6 +163,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "In tennis, what word is used for a score of zero?",
         answer: "Love",
+        funFact: "The exact origin of the tennis term 'love' for zero is uncertain, although it has been used in the sport for centuries.",
         used: false,
       },
       {
@@ -155,6 +171,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Which country won the 2022 FIFA World Cup?",
         answer: "Argentina",
+        funFact: "Argentina defeated France on penalties in the 2022 World Cup final after the match finished 3–3 following extra time.",
         used: false,
       },
       {
@@ -162,6 +179,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "In which sport would you perform a slam dunk?",
         answer: "Basketball",
+        funFact: "Dunking was banned in U.S. college basketball from 1967 through the 1975–76 season.",
         used: false,
       },
       {
@@ -169,6 +187,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Which Indian festival is widely known as the Festival of Lights?",
         answer: "Diwali",
+        funFact: "Diwali is celebrated by millions of people and is widely associated with the triumph of light over darkness.",
         used: false,
       },
       {
@@ -176,6 +195,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "What is the name of the fictional school attended by Harry Potter?",
         answer: "Hogwarts School of Witchcraft and Wizardry (Hogwarts)",
+        funFact: "Hogwarts students are divided into four houses: Gryffindor, Hufflepuff, Ravenclaw, and Slytherin.",
         used: false,
       },
     ],
@@ -193,6 +213,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Who is this personality?",
         answer: "Pope Leo XIV",
+        funFact: "Pope Leo XIV was born in Chicago and became the first pope born in the United States.",
         imageUrl: "/questions/pope-leo-xiv.jpg",
         used: false,
       },
@@ -201,6 +222,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Who is this personality?",
         answer: "Narendra Modi",
+        funFact: "Narendra Modi first became Prime Minister of India in 2014.",
         imageUrl: "/questions/narendra-modi.jpg",
         used: false,
       },
@@ -209,6 +231,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Who is this personality?",
         answer: "Lionel Messi",
+        funFact: "Lionel Messi captained Argentina to victory in the 2022 FIFA World Cup.",
         imageUrl: "/questions/lionel-messi.jpg",
         used: false,
       },
@@ -217,6 +240,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Who is this personality?",
         answer: "Malala Yousafzai",
+        funFact: "Malala Yousafzai became the youngest-ever Nobel Prize laureate when she received the Nobel Peace Prize at age 17.",
         imageUrl: "/questions/malala-yousafzai.jpg",
         used: false,
       },
@@ -225,6 +249,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Who is this personality?",
         answer: "Sundar Pichai",
+        funFact: "Sundar Pichai was born in Chennai, India, and later became CEO of Google and its parent company, Alphabet.",
         imageUrl: "/questions/sundar-pichai.jpg",
         used: false,
       },
@@ -233,6 +258,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Who is this personality?",
         answer: "Taylor Swift",
+        funFact: "Taylor Swift began her recording career as a country artist before becoming one of the world's most successful pop stars.",
         imageUrl: "/questions/taylor-swift.jpg",
         used: false,
       },
@@ -241,6 +267,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Who is this personality?",
         answer: "Sachin Tendulkar",
+        funFact: "Sachin Tendulkar is the only cricketer to have scored 100 international centuries.",
         imageUrl: "/questions/sachin-tendulkar.jpg",
         used: false,
       },
@@ -249,6 +276,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Who is this personality?",
         answer: "Mother Teresa",
+        funFact: "Mother Teresa founded the Missionaries of Charity in Kolkata in 1950 and received the Nobel Peace Prize in 1979.",
         imageUrl: "/questions/mother-teresa.jpg",
         used: false,
       },
@@ -257,6 +285,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Who is this personality?",
         answer: "Nelson Mandela",
+        funFact: "Nelson Mandela spent 27 years in prison before later becoming South Africa's first Black president.",
         imageUrl: "/questions/nelson-mandela.jpg",
         used: false,
       },
@@ -265,6 +294,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Who is this personality?",
         answer: "A. P. J. Abdul Kalam",
+        funFact: "A. P. J. Abdul Kalam was an aerospace scientist before serving as the 11th President of India.",
         imageUrl: "/questions/apj-abdul-kalam.jpg",
         used: false,
       },
@@ -281,6 +311,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "In which town was Jesus born?",
         answer: "Bethlehem",
+        funFact: "Bethlehem is also traditionally known as the City of David because King David was born there.",
         used: false,
       },
       {
@@ -288,6 +319,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Who baptized Jesus in the Jordan River?",
         answer: "John the Baptist",
+        funFact: "The Gospel of Luke describes John the Baptist's mother, Elizabeth, as a relative of Mary, the mother of Jesus.",
         used: false,
       },
       {
@@ -295,6 +327,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "What was Jesus' first recorded miracle in the Gospel of John?",
         answer: "Turning water into wine at the wedding in Cana",
+        funFact: "The turning of water into wine at Cana is described in John 2 as the first of Jesus' signs.",
         used: false,
       },
       {
@@ -302,6 +335,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "How many apostles did Jesus choose?",
         answer: "12",
+        funFact: "The number twelve echoes the twelve tribes of Israel.",
         used: false,
       },
       {
@@ -309,6 +343,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Which disciple walked on water toward Jesus?",
         answer: "Peter",
+        funFact: "Peter began to sink after becoming afraid, and Jesus reached out and caught him.",
         used: false,
       },
       {
@@ -316,6 +351,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Jesus fed about 5,000 people using five loaves and how many fish?",
         answer: "Two fish",
+        funFact: "The feeding of the 5,000 is the only miracle of Jesus, apart from the Resurrection, recorded in all four Gospels.",
         used: false,
       },
       {
@@ -323,6 +359,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Which man did Jesus raise from the dead after he had been in the tomb for four days?",
         answer: "Lazarus",
+        funFact: "The Gospel of John says Lazarus had already been in the tomb for four days when Jesus arrived.",
         used: false,
       },
       {
@@ -330,6 +367,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Which disciple betrayed Jesus for thirty pieces of silver?",
         answer: "Judas Iscariot",
+        funFact: "The Gospel of Matthew specifically records the payment to Judas as thirty pieces of silver.",
         used: false,
       },
       {
@@ -337,6 +375,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "In which garden did Jesus pray on the night before His crucifixion?",
         answer: "The Garden of Gethsemane",
+        funFact: "The name Gethsemane comes from a term meaning 'oil press,' fitting its location near the Mount of Olives.",
         used: false,
       },
       {
@@ -344,6 +383,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "According to the Gospels, who was compelled to carry Jesus' cross on the way to the crucifixion?",
         answer: "Simon of Cyrene",
+        funFact: "Simon was from Cyrene, an ancient North African city located in what is now Libya.",
         used: false,
       },
     ],
@@ -360,6 +400,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Who did God call to lead the Israelites out of Egypt?",
         answer: "Moses",
+        funFact: "In Exodus, Moses' name is associated with being 'drawn out' of the water after Pharaoh's daughter found him.",
         used: false,
       },
       {
@@ -367,6 +408,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "What appeared to Moses in the wilderness and burned without being consumed?",
         answer: "A burning bush",
+        funFact: "At the burning bush, God told Moses to remove his sandals because he was standing on holy ground.",
         used: false,
       },
       {
@@ -374,6 +416,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "How many plagues did God send upon Egypt before Pharaoh finally let the Israelites go?",
         answer: "10",
+        funFact: "The tenth and final plague was the death of the firstborn, immediately preceding the Israelites' departure from Egypt.",
         used: false,
       },
       {
@@ -381,6 +424,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Which body of water did the Israelites cross after leaving Egypt?",
         answer: "The Red Sea",
+        funFact: "According to Exodus, the Israelites crossed on dry ground while the waters were divided.",
         used: false,
       },
       {
@@ -388,6 +432,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "What food did God provide from heaven for the Israelites in the wilderness?",
         answer: "Manna",
+        funFact: "When the Israelites first saw the food, they asked 'What is it?'—a phrase associated with the name manna.",
         used: false,
       },
       {
@@ -395,6 +440,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "On which mountain did Moses receive the Ten Commandments?",
         answer: "Mount Sinai",
+        funFact: "Mount Sinai is where Israel entered into a covenant with God after leaving Egypt.",
         used: false,
       },
       {
@@ -402,6 +448,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "How many spies were sent to explore the land of Canaan?",
         answer: "12",
+        funFact: "One representative from each of the twelve tribes was chosen to explore the land of Canaan.",
         used: false,
       },
       {
@@ -409,6 +456,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Which two spies believed that Israel could successfully take possession of the Promised Land?",
         answer: "Joshua and Caleb",
+        funFact: "Joshua and Caleb were the two spies who urged the Israelites to trust God and enter the land.",
         used: false,
       },
       {
@@ -416,6 +464,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Who succeeded Moses as leader of the Israelites?",
         answer: "Joshua",
+        funFact: "Before his death, Moses publicly commissioned Joshua to lead the Israelites.",
         used: false,
       },
       {
@@ -423,6 +472,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "The walls of which city fell after the Israelites marched around it for seven days?",
         answer: "Jericho",
+        funFact: "On the seventh day at Jericho, the Israelites marched around the city seven times before the walls fell.",
         used: false,
       },
     ],
@@ -438,6 +488,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "In which city is St. Peter's Basilica located?",
         answer: "Vatican City",
+        funFact: "Vatican City is the smallest independent country in the world by area.",
         used: false,
       },
       {
@@ -445,6 +496,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Which apostle is traditionally regarded as the first bishop of Rome?",
         answer: "Saint Peter",
+        funFact: "Catholic tradition regards Saint Peter as the first Bishop of Rome and therefore the first pope.",
         used: false,
       },
       {
@@ -452,6 +504,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Which major branch of Christianity is led by the Pope?",
         answer: "The Roman Catholic Church",
+        funFact: "The Roman Catholic Church is the world's largest Christian church, with more than a billion members worldwide.",
         used: false,
       },
       {
@@ -459,6 +512,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "The Church of England separated from the authority of Rome during the reign of which English king?",
         answer: "King Henry VIII",
+        funFact: "Henry VIII's break with papal authority was formalized by the Act of Supremacy in 1534.",
         used: false,
       },
       {
@@ -466,6 +520,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Martin Luther's Ninety-five Theses are traditionally associated with the beginning of which major Christian movement?",
         answer: "The Protestant Reformation",
+        funFact: "Martin Luther's Ninety-five Theses date to 1517 and focused heavily on the practice of indulgences.",
         used: false,
       },
       {
@@ -473,6 +528,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Which city is home to the Church of the Holy Sepulchre, traditionally identified with the crucifixion and resurrection of Jesus?",
         answer: "Jerusalem",
+        funFact: "The Church of the Holy Sepulchre contains sites traditionally identified with both Calvary and the tomb of Jesus.",
         used: false,
       },
       {
@@ -480,6 +536,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "Which apostle is traditionally associated with bringing Christianity to India?",
         answer: "Saint Thomas the Apostle",
+        funFact: "According to ancient Christian tradition, Saint Thomas arrived on the Malabar Coast of India in AD 52.",
         used: false,
       },
       {
@@ -487,6 +544,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "In which Indian state is the Mar Thoma Syrian Church headquartered?",
         answer: "Kerala",
+        funFact: "The headquarters of the Mar Thoma Syrian Church is in Thiruvalla, Kerala.",
         used: false,
       },
       {
@@ -494,6 +552,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "What name is commonly given to the worldwide fellowship of churches historically connected to the Church of England?",
         answer: "The Anglican Communion",
+        funFact: "The Anglican Communion is a worldwide family of churches with tens of millions of members across more than 165 countries.",
         used: false,
       },
       {
@@ -501,6 +560,7 @@ export const rounds: Round[] = [
         points: 10,
         question: "What is the largest church building in Vatican City and one of the most famous Christian churches in the world?",
         answer: "St. Peter's Basilica",
+        funFact: "St. Peter's Basilica took more than a century to build and includes work associated with Michelangelo and Bernini.",
         used: false,
       },
     ],
