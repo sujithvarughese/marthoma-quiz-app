@@ -71,6 +71,10 @@ export interface HostState {
   activeQuestionId: string | null;
   revealed: boolean; // answer shown
   stealing: boolean; // standard round: open-steal phase
+  /** Team ids eligible to steal, in turn order, starting right after the team that missed. */
+  stealOrder: string[];
+  /** Index into stealOrder of the team currently attempting the steal; === stealOrder.length means it's the audience's turn. */
+  stealIndex: number;
   pictureCorrect: string[]; // picture round: team ids marked correct
   awarded: boolean; // points already awarded for current question
 
@@ -107,6 +111,19 @@ export function isUsed(state: HostState, id: string): boolean {
   return state.session?.usedQuestionIds.includes(id) ?? false;
 }
 
+/** Whether the steal has cycled past every other team — the audience's turn, no points. */
+export function isAudienceSteal(state: HostState): boolean {
+  return state.stealing && state.stealIndex >= state.stealOrder.length;
+}
+
+/** The team currently attempting the steal, or null if it's the audience's turn. */
+export function currentStealTeam(state: HostState): SessionTeam | null {
+  if (!state.session || !state.stealing) return null;
+  const id = state.stealOrder[state.stealIndex];
+  if (!id) return null;
+  return state.session.teams.find((t) => t.id === id) ?? null;
+}
+
 /** Teams sorted highest-score first (stable by roster order on ties). */
 export function rankedTeams(teams: SessionTeam[]): SessionTeam[] {
   return [...teams].sort((a, b) => b.score - a.score || a.order - b.order);
@@ -124,6 +141,8 @@ export type Action =
   | { type: "ADD_TEAM" }
   | { type: "REMOVE_TEAM"; teamId: string }
   | { type: "RENAME_TEAM"; teamId: string; name: string }
+  | { type: "REORDER_TEAMS"; teamIds: string[] }
+  | { type: "RANDOMIZE_TEAMS" }
   | { type: "START_GAME" }
   | { type: "NEW_GAME" }
   // navigation
@@ -137,7 +156,8 @@ export type Action =
   | { type: "REVEAL_ANSWER" }
   | { type: "AWARD_CORRECT" } // active team answered
   | { type: "OPEN_STEAL" }
-  | { type: "AWARD_STEAL"; teamId: string }
+  | { type: "STEAL_MISS" } // current steal attempt missed too — advance to the next team (or the audience)
+  | { type: "AWARD_STEAL" } // current team in the steal order answered correctly
   | { type: "TOGGLE_PICTURE_TEAM"; teamId: string } // picture round
   | { type: "AWARD_PICTURE" }
   | { type: "CLOSE_QUESTION" }
@@ -187,6 +207,22 @@ function pickRandomUnused(pool: QuestionDoc[], usedIds: string[], n: number) {
   return dealt;
 }
 
+/**
+ * Steal turn order: every other team, starting with the one immediately after
+ * the team that missed and wrapping around — but never including that team
+ * itself (getting back around to them means the audience's turn instead).
+ */
+function stealOrderFor(session: SessionState): string[] {
+  const { teamOrder, activeTeamIndex } = session;
+  const n = teamOrder.length;
+  if (n <= 1) return [];
+  const order: string[] = [];
+  for (let i = 1; i < n; i++) {
+    order.push(teamOrder[(activeTeamIndex + i) % n]);
+  }
+  return order;
+}
+
 function rotate(session: SessionState): number {
   if (!session.settings.rotateStartingTeam || session.teamOrder.length === 0) {
     return session.activeTeamIndex;
@@ -198,6 +234,8 @@ const CLEARED = {
   activeQuestionId: null,
   revealed: false,
   stealing: false,
+  stealOrder: [] as string[],
+  stealIndex: 0,
   pictureCorrect: [] as string[],
   timer: IDLE_TIMER,
   awarded: false,
@@ -216,6 +254,8 @@ function makeInitialState(): HostState {
     activeQuestionId: null,
     revealed: false,
     stealing: false,
+    stealOrder: [],
+    stealIndex: 0,
     pictureCorrect: [],
     rapid: null,
     timer: IDLE_TIMER,
@@ -234,12 +274,12 @@ function reducer(state: HostState, action: Action): HostState {
         settings: {
           ...DEFAULT_SETTINGS,
           ...(action.session.settings || {}),
-          // Enforce 30s per question / 20s steal defaults even if old save had 20/10
+          // Enforce 60s per question / 20s steal defaults even if old save had 20/30/10
           normalAnswerSeconds:
             action.session.settings?.normalAnswerSeconds &&
-            action.session.settings.normalAnswerSeconds > 20
+            action.session.settings.normalAnswerSeconds > 30
               ? action.session.settings.normalAnswerSeconds
-              : 30,
+              : 60,
           stealAnswerSeconds:
             action.session.settings?.stealAnswerSeconds &&
             action.session.settings.stealAnswerSeconds > 10
@@ -247,9 +287,9 @@ function reducer(state: HostState, action: Action): HostState {
               : 20,
           pictureAnswerSeconds:
             action.session.settings?.pictureAnswerSeconds &&
-            action.session.settings.pictureAnswerSeconds > 15
+            action.session.settings.pictureAnswerSeconds > 30
               ? action.session.settings.pictureAnswerSeconds
-              : 30,
+              : 60,
         },
       };
       const view: HostView =
@@ -303,6 +343,34 @@ function reducer(state: HostState, action: Action): HostState {
             t.id === action.teamId ? { ...t, name: action.name } : t,
           ),
         },
+      };
+    }
+
+    case "REORDER_TEAMS": {
+      if (!state.session) return state;
+      const byId = new Map(state.session.teams.map((t) => [t.id, t]));
+      const teams = action.teamIds
+        .map((id) => byId.get(id))
+        .filter((t): t is SessionTeam => !!t)
+        .map((t, i) => ({ ...t, order: i }));
+      if (teams.length !== state.session.teams.length) return state;
+      return {
+        ...state,
+        session: { ...state.session, teams, teamOrder: teams.map((t) => t.id) },
+      };
+    }
+
+    case "RANDOMIZE_TEAMS": {
+      if (!state.session) return state;
+      const shuffled = [...state.session.teams];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      const teams = shuffled.map((t, i) => ({ ...t, order: i }));
+      return {
+        ...state,
+        session: { ...state.session, teams, teamOrder: teams.map((t) => t.id) },
       };
     }
 
@@ -393,7 +461,7 @@ function reducer(state: HostState, action: Action): HostState {
       const rawSeconds = isPicture
         ? state.session.settings.pictureAnswerSeconds
         : state.session.settings.normalAnswerSeconds;
-      const seconds = rawSeconds && rawSeconds > 20 ? rawSeconds : 30;
+      const seconds = rawSeconds && rawSeconds > 30 ? rawSeconds : 60;
       return {
         ...state,
         session: {
@@ -405,6 +473,8 @@ function reducer(state: HostState, action: Action): HostState {
         activeQuestionId: q.id,
         revealed: false,
         stealing: false,
+        stealOrder: [],
+        stealIndex: 0,
         pictureCorrect: [],
         awarded: false,
         timer: startTimer(seconds),
@@ -441,22 +511,44 @@ function reducer(state: HostState, action: Action): HostState {
       return {
         ...state,
         stealing: true,
+        stealOrder: stealOrderFor(state.session),
+        stealIndex: 0,
         revealed: false,
+        timer: startTimer(stealSeconds),
+      };
+    }
+
+    case "STEAL_MISS": {
+      if (!state.session || !state.stealing || state.awarded) return state;
+      // The audience already had their shot and missed too — close it out, no points.
+      if (state.stealIndex >= state.stealOrder.length) {
+        return {
+          ...state,
+          stealing: false,
+          revealed: true,
+          awarded: true,
+          timer: IDLE_TIMER,
+        };
+      }
+      // Advance to the next team in line (or the audience, once the order is exhausted).
+      const rawSteal = state.session.settings.stealAnswerSeconds;
+      const stealSeconds = rawSteal && rawSteal > 10 ? rawSteal : 20;
+      return {
+        ...state,
+        stealIndex: state.stealIndex + 1,
         timer: startTimer(stealSeconds),
       };
     }
 
     case "AWARD_STEAL": {
       if (!state.session || state.awarded) return state;
+      const team = currentStealTeam(state);
+      if (!team) return state;
       return {
         ...state,
         session: {
           ...state.session,
-          teams: award(
-            state.session.teams,
-            action.teamId,
-            state.session.settings.stealPoints,
-          ),
+          teams: award(state.session.teams, team.id, state.session.settings.stealPoints),
         },
         stealing: false,
         revealed: true,
@@ -721,6 +813,8 @@ export function buildLive(state: HostState): LiveDisplay | null {
         order: i + 1,
         used: session.usedQuestionIds.includes(id),
       }));
+      const stealTeam = currentStealTeam(state);
+      const audienceTurn = isAudienceSteal(state);
       return {
         ...base,
         screen,
@@ -734,9 +828,13 @@ export function buildLive(state: HostState): LiveDisplay | null {
         answer: state.revealed ? q.answer : null,
         imageUrl: null,
         showAnswer: state.revealed,
-        activeTeamId: state.stealing ? null : team?.id ?? null,
-        activeTeamName: state.stealing ? null : team?.name ?? null,
-        message: state.stealing ? "Open to steal!" : null,
+        activeTeamId: state.stealing ? (stealTeam?.id ?? null) : team?.id ?? null,
+        activeTeamName: state.stealing ? (stealTeam?.name ?? null) : team?.name ?? null,
+        message: state.stealing
+          ? audienceTurn
+            ? "Audience steal — no points!"
+            : `Steal attempt: ${stealTeam?.name ?? ""}`
+          : null,
         board,
       };
     }

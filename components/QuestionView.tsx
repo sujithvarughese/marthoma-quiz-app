@@ -3,7 +3,9 @@
 import {
   activeTeam,
   currentRound,
+  currentStealTeam,
   getQuestion,
+  isAudienceSteal,
   useDispatch,
   useGame,
 } from "@/lib/store";
@@ -27,7 +29,9 @@ export function QuestionView() {
   const team = activeTeam(state);
   const { revealed, stealing, timer, awarded } = state;
   const { correctPoints, stealPoints, allowSteals } = session.settings;
-  const stealCandidates = session.teams.filter((t) => t.id !== team?.id);
+  const canSteal = session.teams.length > 1;
+  const stealTeam = currentStealTeam(state);
+  const audienceTurn = isAudienceSteal(state);
 
   return (
     <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.6fr_1fr]">
@@ -39,7 +43,9 @@ export function QuestionView() {
           </span>
           {stealing && (
             <span className="rounded-full bg-amber-500 px-4 py-1.5 text-xl font-black text-slate-900">
-              STEAL · answer for +{stealPoints}
+              {audienceTurn
+                ? "STEAL · audience's turn"
+                : `STEAL · ${stealTeam?.name ?? ""} for +${stealPoints}`}
             </span>
           )}
         </div>
@@ -85,7 +91,15 @@ export function QuestionView() {
           <CountdownTimer
             endsAt={timer.endsAt}
             durationSeconds={timer.durationSeconds}
-            label={stealing ? `Steal · ${stealPoints} pts` : team ? `${team.name}'s turn` : "Answer"}
+            label={
+              stealing
+                ? audienceTurn
+                  ? "Audience · no points"
+                  : `${stealTeam?.name ?? "Steal"} · ${stealPoints} pts`
+                : team
+                  ? `${team.name}'s turn`
+                  : "Answer"
+            }
           />
         </div>
 
@@ -102,7 +116,7 @@ export function QuestionView() {
                   ✓ {team.name} correct (+{correctPoints})
                 </Button>
               )}
-              {allowSteals && stealCandidates.length > 0 && (
+              {allowSteals && canSteal && (
                 <Button
                   variant="amber"
                   size="md"
@@ -113,34 +127,43 @@ export function QuestionView() {
                 </Button>
               )}
             </>
+          ) : audienceTurn ? (
+            <div>
+              <p className="mb-3 text-center text-base font-semibold text-slate-300">
+                Back around to {team?.name} — audience&apos;s turn.{" "}
+                <span className="text-amber-300">No points awarded</span>
+              </p>
+              <Button
+                variant="ghost"
+                size="md"
+                disabled={awarded}
+                onClick={() => dispatch({ type: "STEAL_MISS" })}
+              >
+                → Reveal answer
+              </Button>
+            </div>
           ) : (
             <div>
               <p className="mb-2 text-center text-base font-semibold text-slate-300">
-                Who stole it?{" "}
-                <span className="text-amber-300">+{stealPoints}</span>
+                <span className="text-amber-300">{stealTeam?.name}</span>{" "}
+                is stealing for +{stealPoints}
               </p>
-              <div className="grid grid-cols-2 gap-2">
-                {stealCandidates.map((t) => (
-                  <Button
-                    key={t.id}
-                    variant="neutral"
-                    size="sm"
-                    disabled={awarded}
-                    onClick={() =>
-                      dispatch({ type: "AWARD_STEAL", teamId: t.id })
-                    }
-                  >
-                    {t.name}
-                  </Button>
-                ))}
-              </div>
               <Button
-                className="mt-3 w-full"
-                variant="ghost"
-                size="sm"
-                onClick={() => dispatch({ type: "REVEAL_ANSWER" })}
+                variant="success"
+                size="lg"
+                disabled={awarded}
+                onClick={() => dispatch({ type: "AWARD_STEAL" })}
               >
-                No one — reveal answer
+                ✓ {stealTeam?.name} correct (+{stealPoints})
+              </Button>
+              <Button
+                className="mt-2 w-full"
+                variant="amber"
+                size="md"
+                disabled={awarded}
+                onClick={() => dispatch({ type: "STEAL_MISS" })}
+              >
+                ✗ Missed — open to steal (+{stealPoints})
               </Button>
             </div>
           )}
