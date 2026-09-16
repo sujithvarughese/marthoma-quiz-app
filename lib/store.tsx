@@ -77,8 +77,8 @@ export interface HostState {
   stealIndex: number;
   pictureCorrect: string[]; // picture round: team ids marked correct
   awarded: boolean; // points already awarded for current question
-  /** The last points award for the current question, so UNDO_QUESTION can retract it. */
-  lastAward: { teamId: string; amount: number } | null;
+  /** The last points award(s) for the current question, so UNDO_QUESTION can retract them. */
+  lastAward: { teamId: string; amount: number }[] | null;
 
   rapid: RapidState | null;
   timer: HostTimer;
@@ -156,6 +156,7 @@ export type Action =
   | { type: "OPEN_ROUND"; roundId: string }
   // standard / picture question flow
   | { type: "SELECT_QUESTION"; questionId: string }
+  | { type: "START_QUESTION_TIMER" } // host is ready — start the main answer clock
   | { type: "REVEAL_ANSWER" }
   | { type: "AWARD_CORRECT" } // active team answered
   | { type: "OPEN_STEAL" }
@@ -488,10 +489,6 @@ function reducer(state: HostState, action: Action): HostState {
       const round = currentRound(state);
       if (!q || !round || isUsed(state, q.id)) return state;
       const isPicture = round.type === "picture";
-      const rawSeconds = isPicture
-        ? state.session.settings.pictureAnswerSeconds
-        : state.session.settings.normalAnswerSeconds;
-      const seconds = rawSeconds && rawSeconds > 30 ? rawSeconds : 60;
       return {
         ...state,
         session: {
@@ -508,8 +505,22 @@ function reducer(state: HostState, action: Action): HostState {
         pictureCorrect: [],
         awarded: false,
         lastAward: null,
-        timer: startTimer(seconds),
+        // The clock stays paused until the host clicks "Start Timer" — gives
+        // them time to read the question aloud first.
+        timer: IDLE_TIMER,
       };
+    }
+
+    case "START_QUESTION_TIMER": {
+      if (!state.session || !state.activeQuestionId || state.awarded) return state;
+      const round = currentRound(state);
+      if (!round) return state;
+      const isPicture = round.type === "picture";
+      const rawSeconds = isPicture
+        ? state.session.settings.pictureAnswerSeconds
+        : state.session.settings.normalAnswerSeconds;
+      const seconds = rawSeconds && rawSeconds > 30 ? rawSeconds : 60;
+      return { ...state, timer: startTimer(seconds) };
     }
 
     case "REVEAL_ANSWER":
@@ -526,7 +537,7 @@ function reducer(state: HostState, action: Action): HostState {
           ...state.session,
           teams: award(state.session.teams, team.id, amount),
         },
-        lastAward: { teamId: team.id, amount },
+        lastAward: [{ teamId: team.id, amount }],
         revealed: true,
         awarded: true,
         timer: IDLE_TIMER,
@@ -586,7 +597,7 @@ function reducer(state: HostState, action: Action): HostState {
           ...state.session,
           teams: award(state.session.teams, team.id, amount),
         },
-        lastAward: { teamId: team.id, amount },
+        lastAward: [{ teamId: team.id, amount }],
         stealing: false,
         revealed: true,
         awarded: true,
@@ -600,12 +611,10 @@ function reducer(state: HostState, action: Action): HostState {
       // paused between steal turns) — otherwise there's nothing to undo.
       const pendingStealTurn = state.stealing && state.timer.endsAt === null;
       if (!state.awarded && !pendingStealTurn) return state;
-      const round = currentRound(state);
-      const rawSeconds = state.session.settings.normalAnswerSeconds;
-      const seconds = rawSeconds && rawSeconds > 30 ? rawSeconds : 60;
-      const teams = state.lastAward
-        ? award(state.session.teams, state.lastAward.teamId, -state.lastAward.amount)
-        : state.session.teams;
+      let teams = state.session.teams;
+      for (const a of state.lastAward ?? []) {
+        teams = award(teams, a.teamId, -a.amount);
+      }
       return {
         ...state,
         session: { ...state.session, teams },
@@ -613,9 +622,11 @@ function reducer(state: HostState, action: Action): HostState {
         stealing: false,
         stealOrder: [],
         stealIndex: 0,
+        pictureCorrect: [],
         awarded: false,
         lastAward: null,
-        timer: round ? startTimer(seconds) : state.timer,
+        // Back to the pristine, pre-start state — the host starts the clock again when ready.
+        timer: IDLE_TIMER,
       };
     }
 
@@ -632,13 +643,15 @@ function reducer(state: HostState, action: Action): HostState {
 
     case "AWARD_PICTURE": {
       if (!state.session || state.awarded) return state;
+      const amount = state.session.settings.picturePoints;
       let teams = state.session.teams;
       for (const id of state.pictureCorrect) {
-        teams = award(teams, id, state.session.settings.picturePoints);
+        teams = award(teams, id, amount);
       }
       return {
         ...state,
         session: { ...state.session, teams },
+        lastAward: state.pictureCorrect.map((teamId) => ({ teamId, amount })),
         revealed: true,
         awarded: true,
         timer: IDLE_TIMER,

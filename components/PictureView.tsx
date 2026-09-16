@@ -4,6 +4,7 @@
 // Plain <img> so any local path or remote URL from the data works without
 // configuring next/image remote domains.
 
+import { useState } from "react";
 import {
   currentRound,
   getQuestion,
@@ -21,6 +22,7 @@ import { CountdownTimer } from "./CountdownTimer";
 export function PictureView() {
   const state = useGame();
   const dispatch = useDispatch();
+  const [confirmReveal, setConfirmReveal] = useState(false);
 
   const q = getQuestion(state, state.activeQuestionId);
   const round = currentRound(state);
@@ -30,6 +32,9 @@ export function PictureView() {
   const { revealed, pictureCorrect, timer, awarded } = state;
   const { picturePoints } = session.settings;
   const selected = new Set(pictureCorrect);
+  // The clock starts paused — gives the host time to reveal the picture and
+  // read the question aloud before the countdown (and whiteboards) begin.
+  const pendingQuestionStart = timer.endsAt === null && !awarded && !revealed;
 
   return (
     <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.6fr_1fr]">
@@ -66,7 +71,7 @@ export function PictureView() {
               variant={revealed ? "neutral" : "primary"}
               size="md"
               disabled={revealed}
-              onClick={() => dispatch({ type: "REVEAL_ANSWER" })}
+              onClick={() => setConfirmReveal(true)}
             >
               {revealed ? "✓ Revealed on Display" : "👁 Reveal on Display"}
             </Button>
@@ -93,39 +98,52 @@ export function PictureView() {
         </div>
 
         <div className="panel flex flex-col gap-3 p-6">
-          <p className="text-center text-base font-semibold text-slate-300">
-            Tick each team that got it right{" "}
-            <span className="text-emerald-300">+{picturePoints}</span>
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            {session.teams.map((t) => {
-              const on = selected.has(t.id);
-              return (
-                <Button
-                  key={t.id}
-                  variant={on ? "success" : "neutral"}
-                  size="sm"
-                  disabled={awarded}
-                  onClick={() =>
-                    dispatch({ type: "TOGGLE_PICTURE_TEAM", teamId: t.id })
-                  }
-                >
-                  {on ? "✓ " : ""}
-                  {t.name}
-                </Button>
-              );
-            })}
-          </div>
+          {pendingQuestionStart ? (
+            <Button
+              className="w-full"
+              variant="success"
+              size="lg"
+              onClick={() => dispatch({ type: "START_QUESTION_TIMER" })}
+            >
+              ▶ Start Timer
+            </Button>
+          ) : (
+            <>
+              <p className="text-center text-base font-semibold text-slate-300">
+                Tick each team that got it right{" "}
+                <span className="text-emerald-300">+{picturePoints}</span>
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {session.teams.map((t) => {
+                  const on = selected.has(t.id);
+                  return (
+                    <Button
+                      key={t.id}
+                      variant={on ? "success" : "neutral"}
+                      size="sm"
+                      disabled={awarded}
+                      onClick={() =>
+                        dispatch({ type: "TOGGLE_PICTURE_TEAM", teamId: t.id })
+                      }
+                    >
+                      {on ? "✓ " : ""}
+                      {t.name}
+                    </Button>
+                  );
+                })}
+              </div>
 
-          <Button
-            variant="primary"
-            size="md"
-            disabled={pictureCorrect.length === 0 || awarded}
-            onClick={() => dispatch({ type: "AWARD_PICTURE" })}
-          >
-            Award +{picturePoints} to {pictureCorrect.length} team
-            {pictureCorrect.length === 1 ? "" : "s"}
-          </Button>
+              <Button
+                variant="primary"
+                size="md"
+                disabled={pictureCorrect.length === 0 || awarded}
+                onClick={() => dispatch({ type: "AWARD_PICTURE" })}
+              >
+                Award +{picturePoints} to {pictureCorrect.length} team
+                {pictureCorrect.length === 1 ? "" : "s"}
+              </Button>
+            </>
+          )}
 
           <Button
             className="mt-2 w-full"
@@ -135,8 +153,56 @@ export function PictureView() {
           >
             Back to Board →
           </Button>
+          {awarded && (
+            <Button
+              className="w-full"
+              variant="ghost"
+              size="sm"
+              onClick={() => dispatch({ type: "UNDO_QUESTION" })}
+            >
+              ↺ Undo
+            </Button>
+          )}
         </div>
       </div>
+
+      {confirmReveal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reveal-confirm-title"
+        >
+          <div className="w-full max-w-md rounded-3xl border border-white/15 bg-[#0f1729] p-8 text-center shadow-2xl">
+            <h2 id="reveal-confirm-title" className="text-2xl font-black text-white">
+              Reveal the answer?
+            </h2>
+            <p className="mt-3 text-lg text-slate-200">
+              Are you sure you want to reveal the answer on the big screen for
+              all teams and the audience to see?
+            </p>
+            <div className="mt-6 flex justify-center gap-3">
+              <Button
+                variant="ghost"
+                size="md"
+                onClick={() => setConfirmReveal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => {
+                  dispatch({ type: "REVEAL_ANSWER" });
+                  setConfirmReveal(false);
+                }}
+              >
+                Yes, Reveal It
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

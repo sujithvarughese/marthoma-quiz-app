@@ -202,6 +202,97 @@ body {
   animation: floatDownFade 2.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
 
+/*
+ * A compact score "pop" that stays inside its own small travel range —
+ * unlike floatUpFade/floatDownFade above, it never needs to escape the
+ * pill it's anchored to, so it can't be clipped by a scrollable ancestor
+ * (e.g. a horizontally-scrolling scoreboard row, where overflow-x: auto
+ * forces overflow-y to auto too and would otherwise clip a tall float).
+ */
+@keyframes scorePopFade {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  25% {
+    opacity: 1;
+    transform: scale(1.35);
+  }
+  45% {
+    transform: scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+.animate-score-pop {
+  animation: scorePopFade 1.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+/*
+ * A big, audience-visible score burst for the projector display — pops in
+ * large then floats well clear of the scoreboard row. Only safe to use where
+ * the row it floats above has plain overflow (no scrollable ancestor), since
+ * unlike scorePopFade above this travels far enough to need real headroom.
+ */
+@keyframes scoreBurstUp {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.4);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(-8px) scale(1.55);
+  }
+  32% {
+    transform: translateY(-22px) scale(1.15);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-58px) scale(1.05);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-92px) scale(0.95);
+  }
+}
+
+@keyframes scoreBurstDown {
+  0% {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.4);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(8px) scale(1.55);
+  }
+  32% {
+    transform: translateY(22px) scale(1.15);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(58px) scale(1.05);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(92px) scale(0.95);
+  }
+}
+
+.animate-score-burst-up {
+  animation: scoreBurstUp 2.2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.animate-score-burst-down {
+  animation: scoreBurstDown 2.2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
 .animate-score-bump-up {
   animation: scorePulseUp 0.8s ease-out;
 }

@@ -129,11 +129,11 @@ function DisplaySurface() {
 
           if (newDeltas.length > 0) {
             setScoreDeltas((prev) => [...prev, ...newDeltas]);
-            // Clean up deltas after animation completes (2.5s)
+            // Clean up deltas after the burst animation completes (2.2s)
             setTimeout(() => {
               const now = Date.now();
-              setScoreDeltas((cur) => cur.filter((d) => now - d.timestamp < 2700));
-            }, 2800);
+              setScoreDeltas((cur) => cur.filter((d) => now - d.timestamp < 2100));
+            }, 2200);
           }
         }
 
@@ -879,7 +879,7 @@ function BottomScoreboardDock({
 
   return (
     <footer className="relative z-30 border-t-2 border-white/10 bg-gradient-to-b from-slate-950/80 to-slate-950/95 px-6 py-5 shadow-[0_-15px_40px_rgba(0,0,0,0.6)] backdrop-blur-xl">
-      <div className="mx-auto flex flex-nowrap items-center justify-center gap-3 overflow-x-auto overflow-y-visible py-1">
+      <div className="mx-auto flex flex-wrap items-center justify-center gap-3 py-2">
         {scores.map((team, idx) => {
           const isActive = activeTeamId === team.id;
           const isLeader = team.score > 0 && team.score === maxScore;
@@ -895,21 +895,23 @@ function BottomScoreboardDock({
                   : "shadow-md"
               }`}
             >
-              {/* Floating Score Delta Fireworks (+5 / -5) */}
-              <div className="pointer-events-none absolute -top-8 right-3 flex flex-col items-center">
-                {teamDeltas.map((d) => (
-                  <span
-                    key={d.id}
-                    className={`font-mono text-xl font-black ${
-                      d.delta > 0
-                        ? "animate-score-delta-up text-emerald-400 drop-shadow-[0_0_12px_rgba(52,211,153,0.9)]"
-                        : "animate-score-delta-down text-rose-400 drop-shadow-[0_0_12px_rgba(244,63,94,0.9)]"
-                    }`}
-                  >
-                    {d.delta > 0 ? `+${d.delta}` : d.delta}
-                  </span>
-                ))}
-              </div>
+              {/* Big Score Burst (+5 / -5) — large and unmissable from the audience. */}
+              {teamDeltas.length > 0 && (
+                <div className="pointer-events-none absolute -top-4 left-1/2 z-20 flex -translate-x-1/2 flex-col items-center">
+                  {teamDeltas.map((d) => (
+                    <span
+                      key={d.id}
+                      className={`whitespace-nowrap font-mono text-5xl font-black sm:text-6xl ${
+                        d.delta > 0
+                          ? "animate-score-burst-up text-emerald-400 drop-shadow-[0_0_25px_rgba(52,211,153,0.95)]"
+                          : "animate-score-burst-down text-rose-400 drop-shadow-[0_0_25px_rgba(244,63,94,0.95)]"
+                      }`}
+                    >
+                      {d.delta > 0 ? `+${d.delta}` : d.delta}
+                    </span>
+                  ))}
+                </div>
+              )}
 
               {/* Team Index (Preserved Order) */}
               <span

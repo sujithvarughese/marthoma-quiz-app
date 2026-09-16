@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   activeTeam,
   currentRound,
@@ -20,6 +21,7 @@ import { CountdownTimer } from "./CountdownTimer";
 export function QuestionView() {
   const state = useGame();
   const dispatch = useDispatch();
+  const [confirmReveal, setConfirmReveal] = useState(false);
 
   const q = getQuestion(state, state.activeQuestionId);
   const round = currentRound(state);
@@ -35,6 +37,9 @@ export function QuestionView() {
   // Between steal turns the clock is left paused — the host decides when to
   // start the next team's (or the audience's) attempt.
   const pendingStealTurn = stealing && timer.endsAt === null && !awarded;
+  // The main answer clock also starts paused — gives the host time to read
+  // the question aloud before the countdown begins.
+  const pendingQuestionStart = !stealing && timer.endsAt === null && !awarded && !revealed;
 
   return (
     <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.6fr_1fr]">
@@ -71,7 +76,7 @@ export function QuestionView() {
               variant={revealed ? "neutral" : "primary"}
               size="md"
               disabled={revealed}
-              onClick={() => dispatch({ type: "REVEAL_ANSWER" })}
+              onClick={() => setConfirmReveal(true)}
             >
               {revealed ? "✓ Revealed on Display" : "👁 Reveal on Display"}
             </Button>
@@ -108,30 +113,41 @@ export function QuestionView() {
 
         <div className="panel flex flex-col gap-3 p-6">
           {!stealing ? (
-            <>
-              {team && (
-                <Button
-                  className="w-full"
-                  variant="success"
-                  size="lg"
-                  disabled={awarded}
-                  onClick={() => dispatch({ type: "AWARD_CORRECT" })}
-                >
-                  ✓ {team.name} correct (+{correctPoints})
-                </Button>
-              )}
-              {allowSteals && canSteal && (
-                <Button
-                  className="w-full"
-                  variant="amber"
-                  size="md"
-                  disabled={awarded}
-                  onClick={() => dispatch({ type: "OPEN_STEAL" })}
-                >
-                  ✗ Missed — open to steal (+{stealPoints})
-                </Button>
-              )}
-            </>
+            pendingQuestionStart ? (
+              <Button
+                className="w-full"
+                variant="success"
+                size="lg"
+                onClick={() => dispatch({ type: "START_QUESTION_TIMER" })}
+              >
+                ▶ Start Timer
+              </Button>
+            ) : (
+              <>
+                {team && (
+                  <Button
+                    className="w-full"
+                    variant="success"
+                    size="lg"
+                    disabled={awarded}
+                    onClick={() => dispatch({ type: "AWARD_CORRECT" })}
+                  >
+                    ✓ {team.name} correct (+{correctPoints})
+                  </Button>
+                )}
+                {allowSteals && canSteal && (
+                  <Button
+                    className="w-full"
+                    variant="amber"
+                    size="md"
+                    disabled={awarded}
+                    onClick={() => dispatch({ type: "OPEN_STEAL" })}
+                  >
+                    ✗ Missed — open to steal (+{stealPoints})
+                  </Button>
+                )}
+              </>
+            )
           ) : pendingStealTurn ? (
             <p className="text-center text-base font-semibold text-slate-300">
               {audienceTurn ? (
@@ -242,6 +258,44 @@ export function QuestionView() {
           <p className="mt-1 text-center text-sm text-slate-400">{round.name}</p>
         </div>
       </div>
+
+      {confirmReveal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reveal-confirm-title"
+        >
+          <div className="w-full max-w-md rounded-3xl border border-white/15 bg-[#0f1729] p-8 text-center shadow-2xl">
+            <h2 id="reveal-confirm-title" className="text-2xl font-black text-white">
+              Reveal the answer?
+            </h2>
+            <p className="mt-3 text-lg text-slate-200">
+              Are you sure you want to reveal the answer on the big screen for
+              all teams and the audience to see?
+            </p>
+            <div className="mt-6 flex justify-center gap-3">
+              <Button
+                variant="ghost"
+                size="md"
+                onClick={() => setConfirmReveal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => {
+                  dispatch({ type: "REVEAL_ANSWER" });
+                  setConfirmReveal(false);
+                }}
+              >
+                Yes, Reveal It
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
