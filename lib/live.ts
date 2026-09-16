@@ -56,15 +56,17 @@ export interface LiveScore {
   score: number;
 }
 
-/** Rapid-fire progress shown to the audience. */
+/**
+ * Rapid-fire progress shown to the audience during play. Scoring happens
+ * later in a separate host-only review pass, so there's no live correct
+ * count or answer reveal here — just the question and how far along the
+ * team is.
+ */
 export interface LiveRapidFire {
   teamName: string;
   total: number;
-  index: number; // 0-based current question number
-  correct: number;
+  answered: number; // how many of `total` have been answered so far
   question: string | null;
-  answer: string | null; // only when showAnswer
-  showAnswer: boolean;
   finished: boolean;
 }
 

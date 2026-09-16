@@ -775,26 +775,21 @@ function RapidFireScreen({ live }: { live: LiveDisplay }) {
         <h1 className="text-6xl font-black tracking-tight text-yellow-300 drop-shadow-[0_0_25px_rgba(253,224,71,0.4)]">
           ⚡ {rf.teamName}
         </h1>
-        <div className="flex items-center gap-8 text-4xl font-extrabold">
-          {!rf.finished && (
-            <span className="rounded-full border border-white/20 bg-white/10 px-6 py-2 text-slate-200">
-              {rf.index + 1} / {rf.total}
-            </span>
-          )}
-          <span className="rounded-full border border-emerald-400/50 bg-emerald-500/20 px-6 py-2 text-emerald-300 shadow-[0_0_20px_rgba(52,211,153,0.3)]">
-            🔥 {rf.correct} correct
+        {!rf.finished && (
+          <span className="rounded-full border border-white/20 bg-white/10 px-6 py-2 text-4xl font-extrabold text-slate-200">
+            {rf.answered} / {rf.total} answered
           </span>
-        </div>
+        )}
       </header>
 
       <div className="perspective-1500 my-auto flex flex-1 flex-col items-center justify-center p-6 text-center">
         {rf.finished ? (
           <div className="rounded-3xl border-4 border-emerald-400/80 bg-emerald-950/80 p-16 shadow-[0_0_60px_rgba(16,185,129,0.4)]">
             <p className="text-4xl font-bold uppercase tracking-widest text-emerald-300">
-              Round Complete!
+              Answers Recorded!
             </p>
-            <p className="mt-4 text-8xl font-black text-white">
-              {rf.correct} Correct Answers!
+            <p className="mt-4 text-4xl font-black text-white">
+              Results revealed after every team has played.
             </p>
           </div>
         ) : (
@@ -802,13 +797,6 @@ function RapidFireScreen({ live }: { live: LiveDisplay }) {
             <p className="max-w-5xl text-6xl font-black leading-tight text-white drop-shadow-lg">
               {rf.question}
             </p>
-            {rf.showAnswer && rf.answer && (
-              <div className="animate-answer-reveal mt-8 rounded-2xl border-2 border-emerald-400 bg-emerald-950/90 px-8 py-4">
-                <p className="text-5xl font-black text-emerald-300">
-                  {rf.answer}
-                </p>
-              </div>
-            )}
           </div>
         )}
       </div>
