@@ -9,10 +9,11 @@ import { CountdownTimer } from "./CountdownTimer";
 export function RapidFire() {
   const state = useGame();
   const dispatch = useDispatch();
-  const { content, session, rapid, rapidReview, rapidCompleted, timer } = state;
+  const { content, session, rapid, timer } = state;
   const [answerText, setAnswerText] = useState("");
   if (!content || !session) return null;
 
+  const { rapidReview, rapidCompleted, rapidQueue } = session;
   const rapidPoints = session.settings.rapidFirePoints;
   const used = new Set(session.usedQuestionIds);
   const poolRemaining = rapidFireQuestions(content).filter(
@@ -166,7 +167,7 @@ export function RapidFire() {
 
   /* ---- Nothing to play: every team has gone, or the pool ran dry ---- */
   if (!rapid) {
-    const remaining = state.rapidQueue?.length ?? 0;
+    const remaining = rapidQueue?.length ?? 0;
     const allDone = remaining === 0;
     return (
       <div className="mx-auto max-w-4xl text-center">

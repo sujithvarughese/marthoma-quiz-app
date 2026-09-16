@@ -125,6 +125,9 @@ function freshSession(): SessionState {
     currentRoundId: null,
     currentQuestionId: null,
     usedQuestionIds: [],
+    rapidQueue: null,
+    rapidCompleted: [],
+    rapidReview: null,
     settings: DEFAULT_SETTINGS,
   };
 }

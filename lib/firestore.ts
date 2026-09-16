@@ -138,6 +138,9 @@ function toGameDoc(s: SessionState): GameDoc {
     currentRoundId: s.currentRoundId,
     currentQuestionId: s.currentQuestionId,
     usedQuestionIds: s.usedQuestionIds,
+    rapidQueue: s.rapidQueue,
+    rapidCompleted: s.rapidCompleted,
+    rapidReview: s.rapidReview,
     settings: s.settings,
   };
 }

@@ -41,6 +41,27 @@ export interface GameSettings {
   rotateStartingTeam: boolean;
 }
 
+/**
+ * Rapid-fire is split into two phases: every team plays first (recording the
+ * host's typed transcript of what was said, no scoring), then — once every
+ * team has played — the host reviews each team's answers and grades them.
+ * Both phases are persisted so a host refresh mid-round never loses a
+ * team's recorded answers or an in-progress review.
+ */
+export interface RapidFireResult {
+  teamId: string;
+  questionIds: string[];
+  answers: Record<string, string>;
+}
+
+export interface RapidFireReview {
+  teamIds: string[];
+  currentIndex: number;
+  questionIndex: number;
+  graded: Record<string, boolean>;
+  awarded: boolean;
+}
+
 export const DEFAULT_SETTINGS: GameSettings = {
   correctPoints: 10,
   stealPoints: 5,
@@ -76,6 +97,14 @@ export interface SessionState {
   /** Ids of every question already played this event. */
   usedQuestionIds: string[];
 
+  /** Rapid-fire: team ids still due a turn, in locked play order (least
+   * points first, ties broken alphabetically); null until first entered. */
+  rapidQueue: string[] | null;
+  /** Rapid-fire: completed turns awaiting review, in play order. */
+  rapidCompleted: RapidFireResult[];
+  /** Rapid-fire: the active grading pass, or null before review starts. */
+  rapidReview: RapidFireReview | null;
+
   settings: GameSettings;
 }
 
@@ -89,6 +118,9 @@ export interface GameDoc {
   currentRoundId: string | null;
   currentQuestionId: string | null;
   usedQuestionIds: string[];
+  rapidQueue: string[] | null;
+  rapidCompleted: RapidFireResult[];
+  rapidReview: RapidFireReview | null;
   settings: GameSettings;
 }
 
@@ -114,6 +146,40 @@ function isTeam(v: unknown): v is SessionTeam {
   );
 }
 
+function isStringRecord(v: unknown): v is Record<string, string> {
+  if (typeof v !== "object" || v === null) return false;
+  return Object.values(v).every((val) => typeof val === "string");
+}
+
+function isBooleanRecord(v: unknown): v is Record<string, boolean> {
+  if (typeof v !== "object" || v === null) return false;
+  return Object.values(v).every((val) => typeof val === "boolean");
+}
+
+function isRapidFireResult(v: unknown): v is RapidFireResult {
+  if (typeof v !== "object" || v === null) return false;
+  const r = v as Record<string, unknown>;
+  return (
+    typeof r.teamId === "string" &&
+    Array.isArray(r.questionIds) &&
+    r.questionIds.every((id) => typeof id === "string") &&
+    isStringRecord(r.answers)
+  );
+}
+
+function isRapidFireReview(v: unknown): v is RapidFireReview {
+  if (typeof v !== "object" || v === null) return false;
+  const r = v as Record<string, unknown>;
+  return (
+    Array.isArray(r.teamIds) &&
+    r.teamIds.every((id) => typeof id === "string") &&
+    typeof r.currentIndex === "number" &&
+    typeof r.questionIndex === "number" &&
+    isBooleanRecord(r.graded) &&
+    typeof r.awarded === "boolean"
+  );
+}
+
 export function isGameDoc(v: unknown): v is GameDoc {
   if (typeof v !== "object" || v === null) return false;
   const g = v as Record<string, unknown>;
@@ -130,6 +196,12 @@ export function isGameDoc(v: unknown): v is GameDoc {
     (g.currentQuestionId === null || typeof g.currentQuestionId === "string") &&
     Array.isArray(g.usedQuestionIds) &&
     g.usedQuestionIds.every((id) => typeof id === "string") &&
+    (g.rapidQueue === null ||
+      (Array.isArray(g.rapidQueue) &&
+        g.rapidQueue.every((id) => typeof id === "string"))) &&
+    Array.isArray(g.rapidCompleted) &&
+    g.rapidCompleted.every(isRapidFireResult) &&
+    (g.rapidReview === null || isRapidFireReview(g.rapidReview)) &&
     typeof g.settings === "object" &&
     g.settings !== null
   );

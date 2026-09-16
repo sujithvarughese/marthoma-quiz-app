@@ -20,6 +20,7 @@ import {
 import {
   activeTeamId as activeTeamIdOf,
   DEFAULT_SETTINGS,
+  type RapidFireResult,
   type SessionState,
   type SessionTeam,
 } from "./session";
@@ -55,7 +56,10 @@ type HostTimer = LiveTimer;
  * Rapid-fire is split into two phases: every team plays first (recording the
  * host's typed transcript of what was said, no scoring), then — once every
  * team has played — the host reviews each team's answers one at a time and
- * grades them, awarding points at the end of each team's review.
+ * grades them, awarding points at the end of each team's review. The play
+ * queue, completed transcripts, and review progress all live on the
+ * persisted session (see lib/session.ts) so a host refresh can't lose them;
+ * only the single team currently mid-turn is kept here, ephemerally.
  */
 interface RapidPlayState {
   teamId: string;
@@ -68,26 +72,6 @@ interface RapidPlayState {
   answers: Record<string, string>;
   /** True once the queue is empty (all answered) or the host ended the turn early. */
   finished: boolean;
-}
-
-/** One team's completed rapid-fire turn, awaiting review. */
-interface RapidTeamResult {
-  teamId: string;
-  questionIds: string[];
-  answers: Record<string, string>;
-}
-
-interface RapidReviewState {
-  /** Team ids to review, in the order they played. */
-  teamIds: string[];
-  /** Index into teamIds of the team currently being reviewed. */
-  currentIndex: number;
-  /** Index into that team's questionIds of the question currently being judged. */
-  questionIndex: number;
-  /** Correct/incorrect calls made so far for the current team. */
-  graded: Record<string, boolean>;
-  /** True once every question for the current team has been graded and points awarded. */
-  awarded: boolean;
 }
 
 export interface HostState {
@@ -110,15 +94,8 @@ export interface HostState {
   /** The last points award(s) for the current question, so UNDO_QUESTION can retract them. */
   lastAward: { teamId: string; amount: number }[] | null;
 
+  /** The single team currently mid-turn (not yet persisted — see note above). */
   rapid: RapidPlayState | null;
-  /** Team ids still due a rapid-fire turn, in order (least points first, ties
-   * broken alphabetically) — locked in when the round is first entered, and
-   * consumed as each team finishes their turn. Null until first entered. */
-  rapidQueue: string[] | null;
-  /** Completed team turns awaiting review, in play order. */
-  rapidCompleted: RapidTeamResult[];
-  /** Active grading pass over rapidCompleted, or null before review starts. */
-  rapidReview: RapidReviewState | null;
   timer: HostTimer;
 }
 
@@ -263,15 +240,18 @@ function pickRandomUnused(pool: QuestionDoc[], usedIds: string[], n: number) {
  */
 function archiveFinishedRapid(
   state: HostState,
-): { queue: string[] | null; completed: RapidTeamResult[] } {
+): { queue: string[] | null; completed: RapidFireResult[] } {
+  const session = state.session;
   const rf = state.rapid;
+  const queue = session?.rapidQueue ?? null;
+  const completed = session?.rapidCompleted ?? [];
   if (!rf || !rf.finished) {
-    return { queue: state.rapidQueue, completed: state.rapidCompleted };
+    return { queue, completed };
   }
   return {
-    queue: (state.rapidQueue ?? []).filter((id) => id !== rf.teamId),
+    queue: (queue ?? []).filter((id) => id !== rf.teamId),
     completed: [
-      ...state.rapidCompleted,
+      ...completed,
       { teamId: rf.teamId, questionIds: rf.questionIds, answers: rf.answers },
     ],
   };
@@ -329,9 +309,6 @@ function makeInitialState(): HostState {
     stealIndex: 0,
     pictureCorrect: [],
     rapid: null,
-    rapidQueue: null,
-    rapidCompleted: [],
-    rapidReview: null,
     timer: IDLE_TIMER,
     awarded: false,
     lastAward: null,
@@ -346,6 +323,10 @@ function reducer(state: HostState, action: Action): HostState {
     case "HYDRATE_SESSION": {
       const s = {
         ...action.session,
+        // Backward-compat: older saves predate rapid-fire persistence.
+        rapidQueue: action.session.rapidQueue ?? null,
+        rapidCompleted: action.session.rapidCompleted ?? [],
+        rapidReview: action.session.rapidReview ?? null,
         settings: {
           ...DEFAULT_SETTINGS,
           ...(action.session.settings || {}),
@@ -501,12 +482,12 @@ function reducer(state: HostState, action: Action): HostState {
           currentRoundId: null,
           currentQuestionId: null,
           usedQuestionIds: [],
+          rapidQueue: null,
+          rapidCompleted: [],
+          rapidReview: null,
         },
         view: "setup",
         rapid: null,
-        rapidQueue: null,
-        rapidCompleted: [],
-        rapidReview: null,
         ...CLEARED,
       };
     }
@@ -517,12 +498,16 @@ function reducer(state: HostState, action: Action): HostState {
       return {
         ...state,
         session: state.session
-          ? { ...state.session, currentRoundId: null, currentQuestionId: null }
+          ? {
+              ...state.session,
+              currentRoundId: null,
+              currentQuestionId: null,
+              rapidQueue: queue,
+              rapidCompleted: completed,
+            }
           : state.session,
         view: "home",
         rapid: null,
-        rapidQueue: queue,
-        rapidCompleted: completed,
         ...CLEARED,
       };
     }
@@ -754,7 +739,7 @@ function reducer(state: HostState, action: Action): HostState {
 
     /* ---- rapid fire: play phase ---- */
     case "ENTER_RAPIDFIRE": {
-      if (state.rapidReview) {
+      if (state.session?.rapidReview) {
         // Resume an in-progress review pass rather than restarting play.
         return { ...state, view: "rapidfire" };
       }
@@ -787,10 +772,13 @@ function reducer(state: HostState, action: Action): HostState {
         return {
           ...state,
           ...CLEARED,
+          session: {
+            ...state.session,
+            rapidQueue: queue,
+            rapidCompleted: completed,
+          },
           view: "rapidfire",
           rapid: null,
-          rapidQueue: queue,
-          rapidCompleted: completed,
         };
       }
 
@@ -800,6 +788,8 @@ function reducer(state: HostState, action: Action): HostState {
         session: {
           ...state.session,
           usedQuestionIds: [...state.session.usedQuestionIds, ...dealt],
+          rapidQueue: queue,
+          rapidCompleted: completed,
         },
         view: "rapidfire",
         rapid: {
@@ -809,8 +799,6 @@ function reducer(state: HostState, action: Action): HostState {
           answers: {},
           finished: false,
         },
-        rapidQueue: queue,
-        rapidCompleted: completed,
         timer: startTimer(state.session.settings.rapidFireSeconds),
       };
     }
@@ -854,36 +842,46 @@ function reducer(state: HostState, action: Action): HostState {
       return {
         ...state,
         session: state.session
-          ? { ...state.session, currentRoundId: null, currentQuestionId: null }
+          ? {
+              ...state.session,
+              currentRoundId: null,
+              currentQuestionId: null,
+              rapidQueue: queue,
+              rapidCompleted: completed,
+            }
           : state.session,
         view: "home",
         rapid: null,
-        rapidQueue: queue,
-        rapidCompleted: completed,
         ...CLEARED,
       };
     }
 
     /* ---- rapid fire: review phase ---- */
     case "RAPID_REVIEW_START": {
-      if (state.rapidCompleted.length === 0) return state;
+      if (!state.session || state.session.rapidCompleted.length === 0) {
+        return state;
+      }
       return {
         ...state,
-        rapidReview: {
-          teamIds: state.rapidCompleted.map((r) => r.teamId),
-          currentIndex: 0,
-          questionIndex: 0,
-          graded: {},
-          awarded: false,
+        session: {
+          ...state.session,
+          rapidReview: {
+            teamIds: state.session.rapidCompleted.map((r) => r.teamId),
+            currentIndex: 0,
+            questionIndex: 0,
+            graded: {},
+            awarded: false,
+          },
         },
       };
     }
 
     case "RAPID_REVIEW_GRADE": {
-      const rv = state.rapidReview;
-      if (!rv || rv.awarded || !state.session) return state;
+      const session = state.session;
+      const rv = session?.rapidReview;
+      if (!session || !rv || rv.awarded) return state;
       const teamId = rv.teamIds[rv.currentIndex];
-      const result = state.rapidCompleted.find((r) => r.teamId === teamId);
+      const result = session.rapidCompleted.find((r) => r.teamId === teamId);
       if (!teamId || !result) return state;
       const qid = result.questionIds[rv.questionIndex];
       if (!qid) return state;
@@ -893,32 +891,39 @@ function reducer(state: HostState, action: Action): HostState {
       const teamDone = questionIndex >= result.questionIds.length;
 
       if (!teamDone) {
-        return { ...state, rapidReview: { ...rv, questionIndex, graded } };
+        return {
+          ...state,
+          session: { ...session, rapidReview: { ...rv, questionIndex, graded } },
+        };
       }
 
       const correctCount = Object.values(graded).filter(Boolean).length;
-      const points = correctCount * state.session.settings.rapidFirePoints;
+      const points = correctCount * session.settings.rapidFirePoints;
       return {
         ...state,
         session: {
-          ...state.session,
-          teams: award(state.session.teams, teamId, points),
+          ...session,
+          teams: award(session.teams, teamId, points),
+          rapidReview: { ...rv, questionIndex, graded, awarded: true },
         },
-        rapidReview: { ...rv, questionIndex, graded, awarded: true },
       };
     }
 
     case "RAPID_REVIEW_NEXT_TEAM": {
-      const rv = state.rapidReview;
-      if (!rv || !rv.awarded) return state;
+      const session = state.session;
+      const rv = session?.rapidReview;
+      if (!session || !rv || !rv.awarded) return state;
       return {
         ...state,
-        rapidReview: {
-          ...rv,
-          currentIndex: rv.currentIndex + 1,
-          questionIndex: 0,
-          graded: {},
-          awarded: false,
+        session: {
+          ...session,
+          rapidReview: {
+            ...rv,
+            currentIndex: rv.currentIndex + 1,
+            questionIndex: 0,
+            graded: {},
+            awarded: false,
+          },
         },
       };
     }
@@ -927,13 +932,17 @@ function reducer(state: HostState, action: Action): HostState {
       return {
         ...state,
         session: state.session
-          ? { ...state.session, currentRoundId: null, currentQuestionId: null }
+          ? {
+              ...state.session,
+              currentRoundId: null,
+              currentQuestionId: null,
+              rapidQueue: null,
+              rapidCompleted: [],
+              rapidReview: null,
+            }
           : state.session,
         view: "home",
         rapid: null,
-        rapidQueue: null,
-        rapidCompleted: [],
-        rapidReview: null,
         ...CLEARED,
       };
 
@@ -1123,8 +1132,8 @@ export function buildLive(state: HostState): LiveDisplay | null {
     }
 
     case "rapidfire": {
-      if (state.rapidReview) {
-        const rv = state.rapidReview;
+      if (session.rapidReview) {
+        const rv = session.rapidReview;
         const teamId = rv.teamIds[rv.currentIndex];
         const team = teamId ? session.teams.find((t) => t.id === teamId) : null;
         return {
