@@ -21,6 +21,7 @@ export type DisplayScreen =
   | "question"
   | "answer"
   | "rapid_fire"
+  | "rapid_review"
   | "winner";
 
 export interface LiveTimer {
@@ -70,6 +71,23 @@ export interface LiveRapidFire {
   finished: boolean;
 }
 
+/** One row of the family-feud-style rapid-fire review board. */
+export interface LiveRapidReviewItem {
+  question: string;
+  teamAnswer: string;
+  /** Only populated once the host has graded this question. */
+  correctAnswer: string | null;
+  status: "pending" | "correct" | "incorrect";
+}
+
+/** The full review board for whichever team the host is currently reviewing. */
+export interface LiveRapidReview {
+  teamName: string;
+  items: LiveRapidReviewItem[];
+  /** Index of the row currently being revealed/graded. */
+  currentIndex: number;
+}
+
 export interface LiveDisplay {
   screen: DisplayScreen;
 
@@ -104,6 +122,8 @@ export interface LiveDisplay {
   scores: LiveScore[] | null;
   /** Rapid-fire block for the "rapid_fire" screen (null elsewhere). */
   rapidFire: LiveRapidFire | null;
+  /** Rapid-fire review board for the "rapid_review" screen (null elsewhere). */
+  rapidReview: LiveRapidReview | null;
 
   /** Epoch ms of the last publish, for staleness debugging. */
   updatedAt: number;
@@ -135,6 +155,7 @@ export function welcomeLive(name: string, subtitle: string): LiveDisplay {
     board: null,
     scores: null,
     rapidFire: null,
+    rapidReview: null,
     updatedAt: 0,
   };
 }
@@ -148,6 +169,7 @@ export function isDisplayScreen(v: unknown): v is DisplayScreen {
     v === "question" ||
     v === "answer" ||
     v === "rapid_fire" ||
+    v === "rapid_review" ||
     v === "winner"
   );
 }

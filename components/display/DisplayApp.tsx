@@ -271,6 +271,8 @@ function Screen({
       return <AnswerScreen live={live} />;
     case "rapid_fire":
       return <RapidFireScreen live={live} />;
+    case "rapid_review":
+      return <RapidReviewScreen live={live} />;
     case "winner":
       return <WinnerScreen live={live} />;
     default:
@@ -810,6 +812,72 @@ function RapidFireScreen({ live }: { live: LiveDisplay }) {
           />
         </div>
       )}
+    </div>
+  );
+}
+
+/** Rapid Fire Review Screen — family-feud-style reveal board */
+function RapidReviewScreen({ live }: { live: LiveDisplay }) {
+  const rv = live.rapidReview;
+  if (!rv) return <WelcomeScreen live={live} />;
+
+  return (
+    <div className="flex flex-1 flex-col p-10 pb-6">
+      <header className="mb-6 text-center">
+        <div className="inline-block rounded-lg border border-yellow-400/40 bg-yellow-500/10 px-4 py-1.5 text-lg font-black uppercase tracking-widest text-yellow-300">
+          Rapid Fire Review
+        </div>
+        <h1 className="mt-2 text-6xl font-black tracking-tight text-white drop-shadow-lg">
+          ⚡ {rv.teamName}
+        </h1>
+      </header>
+
+      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center gap-3">
+        {rv.items.map((item, i) => {
+          const isCurrent = i === rv.currentIndex;
+          return (
+            <div
+              key={i}
+              className={`flex items-center justify-between gap-6 rounded-2xl border-2 px-8 py-5 transition-all duration-500 ${
+                item.status === "correct"
+                  ? "border-emerald-400/70 bg-emerald-950/50"
+                  : item.status === "incorrect"
+                    ? "border-rose-400/70 bg-rose-950/50"
+                    : isCurrent
+                      ? "border-amber-400/80 bg-amber-950/30 shadow-[0_0_30px_rgba(251,191,36,0.25)]"
+                      : "border-white/10 bg-white/5"
+              }`}
+            >
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-lg font-bold text-slate-400">
+                  {item.question}
+                </p>
+                <p className="mt-1 truncate text-3xl font-black text-white">
+                  {item.teamAnswer}
+                </p>
+              </div>
+
+              <div className="flex flex-shrink-0 items-center gap-4">
+                {item.correctAnswer ? (
+                  <p className="animate-answer-reveal text-3xl font-black text-emerald-300">
+                    {item.correctAnswer}
+                  </p>
+                ) : (
+                  <p className="text-3xl font-black tracking-widest text-slate-600">
+                    ?????
+                  </p>
+                )}
+                {item.status === "correct" && (
+                  <span className="text-4xl">✅</span>
+                )}
+                {item.status === "incorrect" && (
+                  <span className="text-4xl">❌</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

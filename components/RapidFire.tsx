@@ -127,7 +127,7 @@ export function RapidFire() {
                         dispatch({ type: "RAPID_REVIEW_GRADE", correct: true })
                       }
                     >
-                      ✓ Correct
+                      🎬 Reveal as Correct
                     </Button>
                     <Button
                       className="flex-1"
@@ -137,7 +137,7 @@ export function RapidFire() {
                         dispatch({ type: "RAPID_REVIEW_GRADE", correct: false })
                       }
                     >
-                      ✗ Incorrect
+                      🎬 Reveal as Wrong
                     </Button>
                   </div>
                 )}

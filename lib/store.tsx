@@ -190,7 +190,7 @@ export type Action =
   | { type: "EXIT_RAPIDFIRE" }
   // rapid fire — review phase (after every team has played)
   | { type: "RAPID_REVIEW_START" }
-  | { type: "RAPID_REVIEW_GRADE"; correct: boolean }
+  | { type: "RAPID_REVIEW_GRADE"; correct: boolean } // reveals + grades the current question in one step
   | { type: "RAPID_REVIEW_NEXT_TEAM" }
   | { type: "RAPID_REVIEW_DONE" }
   // scores admin
@@ -893,7 +893,10 @@ function reducer(state: HostState, action: Action): HostState {
       if (!teamDone) {
         return {
           ...state,
-          session: { ...session, rapidReview: { ...rv, questionIndex, graded } },
+          session: {
+            ...session,
+            rapidReview: { ...rv, questionIndex, graded },
+          },
         };
       }
 
@@ -904,7 +907,12 @@ function reducer(state: HostState, action: Action): HostState {
         session: {
           ...session,
           teams: award(session.teams, teamId, points),
-          rapidReview: { ...rv, questionIndex, graded, awarded: true },
+          rapidReview: {
+            ...rv,
+            questionIndex,
+            graded,
+            awarded: true,
+          },
         },
       };
     }
@@ -1012,6 +1020,7 @@ export function buildLive(state: HostState): LiveDisplay | null {
     board: null,
     scores: scoresOf(session),
     rapidFire: null,
+    rapidReview: null,
     updatedAt: Date.now(),
   };
 
@@ -1136,12 +1145,44 @@ export function buildLive(state: HostState): LiveDisplay | null {
         const rv = session.rapidReview;
         const teamId = rv.teamIds[rv.currentIndex];
         const team = teamId ? session.teams.find((t) => t.id === teamId) : null;
+        const result = teamId
+          ? session.rapidCompleted.find((r) => r.teamId === teamId)
+          : null;
+
+        if (!team || !result) {
+          return {
+            ...base,
+            screen: "scoreboard",
+            message: "Rapid Fire review complete!",
+            timer: IDLE_TIMER,
+          };
+        }
+
+        const items = result.questionIds.map((qid, i) => {
+          const q = getQuestion(state, qid);
+          const isGraded = i < rv.questionIndex;
+          const status: "pending" | "correct" | "incorrect" = isGraded
+            ? rv.graded[qid]
+              ? "correct"
+              : "incorrect"
+            : "pending";
+          const teamAnswer = result.answers[qid]?.trim();
+          return {
+            question: q?.question ?? "",
+            teamAnswer: teamAnswer || "No answer given",
+            correctAnswer: status === "pending" ? null : (q?.answer ?? null),
+            status,
+          };
+        });
+
         return {
           ...base,
-          screen: "scoreboard",
-          message: team
-            ? `Reviewing ${team.name}'s Rapid Fire answers…`
-            : "Rapid Fire review complete!",
+          screen: "rapid_review",
+          rapidReview: {
+            teamName: team.name,
+            items,
+            currentIndex: rv.questionIndex,
+          },
           timer: IDLE_TIMER,
         };
       }
