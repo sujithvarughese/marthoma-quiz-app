@@ -23,6 +23,7 @@ import {
 import type { GameContent, QuestionDoc, RoundDoc } from "./content";
 import type { SessionTeam } from "./session";
 import { isLiveDisplay, type LiveDisplay } from "./live";
+import { isHostMirror, type HostMirror } from "./hostMirror";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -74,12 +75,16 @@ export async function loadContent(): Promise<GameContent> {
 }
 
 /**
- * Subscribe to the projector doc. `cb` fires on every change; returns an
- * unsubscribe function. Automatically reconnects on snapshot error, network
- * recovery, or tab focus.
+ * Subscribe to a doc under games/{gameId}/live/{docId}, validating each
+ * snapshot with `isValid` before handing it to `cb`. Automatically
+ * reconnects on snapshot error, network recovery, or tab focus. Returns an
+ * unsubscribe function. Shared by subscribeLive (the projector doc) and
+ * subscribeHostMirror (the speaker doc).
  */
-export function subscribeLive(
-  cb: (live: LiveDisplay | null) => void,
+function subscribeLiveDoc<T>(
+  docId: string,
+  isValid: (v: unknown) => v is T,
+  cb: (value: T | null) => void,
 ): () => void {
   let unsub: (() => void) | null = null;
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -89,16 +94,19 @@ export function subscribeLive(
   function connect() {
     if (destroyed) return;
     try {
-      const ref = doc(collection(gameRef(), "live"), "display");
+      const ref = doc(collection(gameRef(), "live"), docId);
       unsub = onSnapshot(
         ref,
         (snap) => {
           retryDelay = 1000;
           const data = snap.data();
-          cb(data && isLiveDisplay(data) ? (data as LiveDisplay) : null);
+          cb(data && isValid(data) ? data : null);
         },
         (err) => {
-          console.warn("live subscription error, scheduling reconnect:", err);
+          console.warn(
+            `live/${docId} subscription error, scheduling reconnect:`,
+            err,
+          );
           if (unsub) {
             try {
               unsub();
@@ -115,7 +123,7 @@ export function subscribeLive(
         },
       );
     } catch (err) {
-      console.warn("Failed to attach live snapshot, retrying:", err);
+      console.warn(`Failed to attach live/${docId} snapshot, retrying:`, err);
       if (!destroyed) {
         if (retryTimer) clearTimeout(retryTimer);
         retryTimer = setTimeout(() => {
@@ -168,6 +176,27 @@ export function subscribeLive(
       window.removeEventListener("focus", onReconnectTrigger);
     }
   };
+}
+
+/**
+ * Subscribe to the projector doc. `cb` fires on every change; returns an
+ * unsubscribe function. Automatically reconnects on snapshot error, network
+ * recovery, or tab focus.
+ */
+export function subscribeLive(
+  cb: (live: LiveDisplay | null) => void,
+): () => void {
+  return subscribeLiveDoc("display", isLiveDisplay, cb);
+}
+
+/**
+ * Subscribe to the host mirror doc — the unredacted full host screen, for
+ * the /speaker view. Same reconnect behavior as subscribeLive.
+ */
+export function subscribeHostMirror(
+  cb: (mirror: HostMirror | null) => void,
+): () => void {
+  return subscribeLiveDoc("host", isHostMirror, cb);
 }
 
 /** Subscribe to team scores (ordered). Returns an unsubscribe function. */

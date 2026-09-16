@@ -12,6 +12,7 @@ import {
 import type { GameContent, QuestionDoc, RoundDoc } from "./content";
 import type { GameDoc, SessionState, SessionTeam } from "./session";
 import type { LiveDisplay } from "./live";
+import type { HostMirror } from "./hostMirror";
 
 /**
  * Server-only Firestore access via the Firebase Admin SDK. Credentials come
@@ -34,6 +35,7 @@ import type { LiveDisplay } from "./live";
  *   games/{gameId}/rounds/{roundId}         → RoundDoc
  *   games/{gameId}/questions/{questionId}   → QuestionDoc
  *   games/{gameId}/live/display             → LiveDisplay
+ *   games/{gameId}/live/host                → HostMirror
  */
 
 const COLLECTION = "games";
@@ -215,4 +217,21 @@ export async function loadLive(): Promise<LiveDisplay | null> {
   const snap = await gameRef().collection("live").doc("display").get();
   if (!snap.exists) return null;
   return snap.data() as LiveDisplay;
+}
+
+/* ------------------------------------------------------------------ *
+ * Host mirror doc — written by the host, read by the speaker screen.
+ * ------------------------------------------------------------------ */
+
+export async function saveHostMirror(mirror: HostMirror): Promise<void> {
+  await gameRef()
+    .collection("live")
+    .doc("host")
+    .set(clean({ ...mirror, updatedAt: Date.now() }));
+}
+
+export async function loadHostMirror(): Promise<HostMirror | null> {
+  const snap = await gameRef().collection("live").doc("host").get();
+  if (!snap.exists) return null;
+  return snap.data() as HostMirror;
 }

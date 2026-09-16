@@ -67,5 +67,14 @@ export function SyncIndicator() {
           {dot("bg-slate-500")} No server
         </span>
       );
+    case "watching":
+      return (
+        <span
+          title="Read-only speaker view — mirroring the host screen live."
+          className="flex items-center gap-2 text-sm font-semibold text-sky-300"
+        >
+          {dot("bg-sky-400")} 👁 Watching
+        </span>
+      );
   }
 }

@@ -184,6 +184,17 @@ body {
   }
 }
 
+/* Speaker screen: same host UI, every control inert. Only leaf interactive
+   elements are touched (never a container), so scroll regions keep working. */
+.host-readonly button,
+.host-readonly input,
+.host-readonly select,
+.host-readonly textarea {
+  pointer-events: none;
+  opacity: 0.55;
+  cursor: default;
+}
+
 .animate-card-foldout {
   animation: cardFoldOut 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   transform-origin: center center;

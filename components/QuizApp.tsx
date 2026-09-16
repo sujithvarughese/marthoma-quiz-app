@@ -26,7 +26,14 @@ export function QuizApp() {
   );
 }
 
-function HostShell() {
+/**
+ * `readOnly` renders the exact same screens with every control inert — used
+ * by the /speaker view, which mirrors the host screen for an emcee without
+ * letting them touch anything. See the `.host-readonly` rule in globals.css:
+ * it disables (and dims) every button/input/select/textarea inside, without
+ * touching pointer-events on any scroll container, so scrolling still works.
+ */
+export function HostShell({ readOnly = false }: { readOnly?: boolean }) {
   const { view, loaded } = useGame();
 
   if (!loaded) {
@@ -37,10 +44,16 @@ function HostShell() {
     );
   }
 
-  if (view === "setup") return <Landing />;
+  if (view === "setup") {
+    return (
+      <div className={readOnly ? "host-readonly" : undefined}>
+        <Landing />
+      </div>
+    );
+  }
 
   return (
-    <div className="flex h-dvh flex-col">
+    <div className={`flex h-dvh flex-col ${readOnly ? "host-readonly" : ""}`}>
       <TopBar />
 
       <main className="min-h-0 flex-1 overflow-y-auto px-6 py-6 sm:px-10 sm:py-8">

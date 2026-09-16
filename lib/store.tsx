@@ -31,7 +31,8 @@ import {
   type LiveScore,
   type LiveTimer,
 } from "./live";
-import { loadContent } from "./firebaseClient";
+import type { HostMirror } from "./hostMirror";
+import { loadContent, subscribeHostMirror } from "./firebaseClient";
 
 /* ------------------------------------------------------------------ *
  * Host-side state: read-only content + durable session + transient view.
@@ -1210,15 +1211,48 @@ export function buildLive(state: HostState): LiveDisplay | null {
   }
 }
 
+/**
+ * The host mirror is just the host's own state minus the (large, static)
+ * content bank — the /speaker screen loads content itself and merges it back
+ * in, the same way it loads the question content independently of the live
+ * session doc. Unlike buildLive(), nothing here is redacted.
+ */
+export function buildHostMirror(state: HostState): HostMirror {
+  return {
+    session: state.session,
+    loaded: state.loaded,
+    view: state.view,
+    activeQuestionId: state.activeQuestionId,
+    revealed: state.revealed,
+    stealing: state.stealing,
+    stealOrder: state.stealOrder,
+    stealIndex: state.stealIndex,
+    pictureCorrect: state.pictureCorrect,
+    awarded: state.awarded,
+    lastAward: state.lastAward,
+    rapid: state.rapid,
+    timer: state.timer,
+    updatedAt: Date.now(),
+  };
+}
+
 /* ------------------------------------------------------------------ *
- * Persistence — session via /api/state, projector via /api/live.
+ * Persistence — session via /api/state, projector via /api/live,
+ * host mirror (speaker screen) via /api/host-mirror.
  * ------------------------------------------------------------------ */
 
 const HOST_CODE_KEY = "church-quiz-app:hostCode";
 const SESSION_DEBOUNCE_MS = 350;
 const LIVE_DEBOUNCE_MS = 150;
 
-export type SyncStatus = "loading" | "saving" | "saved" | "offline" | "locked" | "disabled";
+export type SyncStatus =
+  | "loading"
+  | "saving"
+  | "saved"
+  | "offline"
+  | "locked"
+  | "disabled"
+  | "watching"; // speaker screen: read-only, mirroring the host live
 
 function hostHeaders(): Record<string, string> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -1238,17 +1272,89 @@ const StateContext = createContext<HostState | null>(null);
 const DispatchContext = createContext<Dispatch<Action> | null>(null);
 const SyncContext = createContext<SyncApi | null>(null);
 
+/** No-op dispatch for read-only contexts (the speaker screen). */
+const noopDispatch: Dispatch<Action> = () => {};
+
+/**
+ * Debounced, retrying publisher for a doc under games/{gameId}/live/*. Used
+ * for both the projector doc (buildLive) and the host mirror doc
+ * (buildHostMirror) — same debounce/retry/coalesce behavior, different URL
+ * and payload.
+ */
+function usePublisher<T>(
+  url: string,
+  hydratedRef: { current: boolean },
+  build: () => T | null,
+  debounceMs: number,
+  deps: unknown[],
+) {
+  const timer = useRef<number | null>(null);
+  const latestRef = useRef<T | null>(null);
+  const inFlightRef = useRef(false);
+  const pendingRef = useRef(false);
+  const retryTimer = useRef<number | null>(null);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    const payload = build();
+    if (!payload) return;
+    latestRef.current = payload;
+
+    const doPublish = async () => {
+      if (inFlightRef.current) {
+        pendingRef.current = true;
+        return;
+      }
+      inFlightRef.current = true;
+      pendingRef.current = false;
+      const toSend = latestRef.current;
+      if (!toSend) {
+        inFlightRef.current = false;
+        return;
+      }
+
+      try {
+        const res = await fetch(url, {
+          method: "PUT",
+          headers: hostHeaders(),
+          body: JSON.stringify(toSend),
+        });
+        if (!res.ok) {
+          throw new Error(`Publish failed with status ${res.status}`);
+        }
+      } catch (err) {
+        console.warn(`Publish to ${url} failed, will retry:`, err);
+        if (retryTimer.current) window.clearTimeout(retryTimer.current);
+        retryTimer.current = window.setTimeout(() => {
+          void doPublish();
+        }, 1000);
+      } finally {
+        inFlightRef.current = false;
+        if (pendingRef.current) {
+          void doPublish();
+        }
+      }
+    };
+
+    if (timer.current) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => {
+      void doPublish();
+    }, debounceMs);
+
+    return () => {
+      if (timer.current) window.clearTimeout(timer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url, debounceMs, ...deps]);
+}
+
 export function GameProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, makeInitialState);
   const [status, setStatus] = useState<SyncStatus>("loading");
 
   const hydratedRef = useRef(false);
   const sessionTimer = useRef<number | null>(null);
-  const liveTimer = useRef<number | null>(null);
-  const latestLiveRef = useRef<LiveDisplay | null>(null);
-  const publishInFlightRef = useRef(false);
-  const publishPendingRef = useRef(false);
-  const publishRetryTimer = useRef<number | null>(null);
 
   // Initial load: content (client SDK) + session (server route).
   useEffect(() => {
@@ -1307,58 +1413,22 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }, SESSION_DEBOUNCE_MS);
   }, [session]);
 
-  // Publish the projector doc on any visible change.
-  useEffect(() => {
-    if (!hydratedRef.current) return;
-    const live = buildLive(state);
-    if (!live) return;
-    latestLiveRef.current = live;
-
-    const doPublish = async () => {
-      if (publishInFlightRef.current) {
-        publishPendingRef.current = true;
-        return;
-      }
-      publishInFlightRef.current = true;
-      publishPendingRef.current = false;
-      const toSend = latestLiveRef.current;
-      if (!toSend) {
-        publishInFlightRef.current = false;
-        return;
-      }
-
-      try {
-        const res = await fetch("/api/live", {
-          method: "PUT",
-          headers: hostHeaders(),
-          body: JSON.stringify(toSend),
-        });
-        if (!res.ok) {
-          throw new Error(`Publish failed with status ${res.status}`);
-        }
-      } catch (err) {
-        console.warn("Live publish failed, will retry:", err);
-        if (publishRetryTimer.current) window.clearTimeout(publishRetryTimer.current);
-        publishRetryTimer.current = window.setTimeout(() => {
-          void doPublish();
-        }, 1000);
-      } finally {
-        publishInFlightRef.current = false;
-        if (publishPendingRef.current) {
-          void doPublish();
-        }
-      }
-    };
-
-    if (liveTimer.current) window.clearTimeout(liveTimer.current);
-    liveTimer.current = window.setTimeout(() => {
-      void doPublish();
-    }, LIVE_DEBOUNCE_MS);
-
-    return () => {
-      if (liveTimer.current) window.clearTimeout(liveTimer.current);
-    };
-  }, [state]);
+  // Publish the projector doc (audience-safe) and the host mirror doc
+  // (unredacted, for the /speaker screen) on any visible change.
+  usePublisher(
+    "/api/live",
+    hydratedRef,
+    () => buildLive(state),
+    LIVE_DEBOUNCE_MS,
+    [state],
+  );
+  usePublisher(
+    "/api/host-mirror",
+    hydratedRef,
+    () => buildHostMirror(state),
+    LIVE_DEBOUNCE_MS,
+    [state],
+  );
 
   const setHostCode = useCallback((code: string) => {
     if (typeof window !== "undefined") {
@@ -1394,6 +1464,49 @@ export function useDispatch(): Dispatch<Action> {
   const ctx = useContext(DispatchContext);
   if (!ctx) throw new Error("useDispatch must be used within <GameProvider>");
   return ctx;
+}
+
+/**
+ * Read-only counterpart to GameProvider for the /speaker screen: loads the
+ * content bank itself (same public read GameProvider uses) and mirrors the
+ * host's full live state from the host-mirror doc, instead of owning a
+ * reducer. Dispatch is a no-op — the speaker screen renders the same
+ * components as the host, with every control disabled (see HostShell's
+ * `readOnly` prop), so nothing should ever reach it, but it's a no-op either
+ * way as a second line of defense.
+ */
+export function SpeakerProvider({ children }: { children: ReactNode }) {
+  const [content, setContent] = useState<GameContent | null>(null);
+  const [mirror, setMirror] = useState<HostMirror | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadContent()
+      .then((c) => {
+        if (!cancelled) setContent(c);
+      })
+      .catch((err) => console.error("content load failed:", err));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => subscribeHostMirror(setMirror), []);
+
+  const base = makeInitialState();
+  const state: HostState = mirror
+    ? { ...base, ...mirror, content, loaded: mirror.loaded && content !== null }
+    : { ...base, content, loaded: false };
+
+  const sync: SyncApi = { status: "watching", setHostCode: () => {} };
+
+  return (
+    <StateContext.Provider value={state}>
+      <DispatchContext.Provider value={noopDispatch}>
+        <SyncContext.Provider value={sync}>{children}</SyncContext.Provider>
+      </DispatchContext.Provider>
+    </StateContext.Provider>
+  );
 }
 
 // Re-export settings default for convenience.
