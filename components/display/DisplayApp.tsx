@@ -193,7 +193,7 @@ function DisplaySurface() {
     live ??
     welcomeLive("Wisdom Across Generations", "Mar Thoma Church of South Florida");
 
-  const showBottomScoreboard =
+  const showScoreboardDock =
     currentLive.screen !== "welcome" &&
     currentLive.screen !== "scoreboard" &&
     currentLive.screen !== "winner";
@@ -219,8 +219,8 @@ function DisplaySurface() {
           </div>
         </Centered>
       ) : (
-        <div className="relative z-10 flex flex-1 flex-col justify-between">
-          <main className="flex flex-1 flex-col">
+        <div className="relative z-10 flex flex-1 flex-col justify-between overflow-hidden">
+          <main className="flex flex-1 flex-col overflow-hidden">
             <Screen
               live={currentLive}
               fromQuestion={
@@ -230,7 +230,7 @@ function DisplaySurface() {
           </main>
 
           {/* Persistent Bottom Scoreboard Dock */}
-          {showBottomScoreboard && (
+          {showScoreboardDock && (
             <BottomScoreboardDock
               scores={currentLive.scores ?? []}
               activeTeamId={currentLive.activeTeamId}
@@ -348,7 +348,7 @@ function RoundsScreen({ live }: { live: LiveDisplay }) {
             Game Categories
           </div>
           <h1 className="mt-2 text-6xl font-black tracking-tight text-white drop-shadow-lg">
-            Choose a Category
+            What&apos;s Ahead
           </h1>
         </div>
         <ActiveBanner live={live} />
@@ -439,42 +439,41 @@ function ScoreTable({
   scores: LiveScore[];
   activeTeamId?: string | null;
 }) {
+  const maxScore = Math.max(0, ...scores.map((s) => s.score));
+
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
       {scores.map((t, i) => {
-        const isLeader = i === 0;
+        const isLeader = t.score > 0 && t.score === maxScore;
         const isActive = activeTeamId === t.id;
 
         return (
           <div
             key={t.id}
             className={`flex items-center justify-between gap-8 rounded-3xl border-2 px-10 py-7 transition-all ${
-              isLeader
-                ? "border-amber-400/80 bg-gradient-to-r from-amber-950/60 via-amber-900/40 to-slate-900/80 shadow-[0_0_40px_rgba(251,191,36,0.3)]"
-                : isActive
-                  ? "border-emerald-400/70 bg-gradient-to-r from-emerald-950/60 to-slate-900/80 shadow-[0_0_30px_rgba(16,185,129,0.25)]"
-                  : "border-white/10 bg-slate-900/60 shadow-xl"
+              isActive
+                ? "border-emerald-400/70 bg-gradient-to-r from-emerald-950/60 to-slate-900/80 shadow-[0_0_30px_rgba(16,185,129,0.25)]"
+                : "border-white/10 bg-slate-900/60 shadow-xl"
             }`}
           >
             <div className="flex items-center gap-8">
-              <span
-                className={`flex h-16 w-16 items-center justify-center rounded-2xl text-3xl font-black shadow-lg ${
-                  isLeader
-                    ? "bg-amber-400 text-slate-950 ring-4 ring-amber-300/50"
-                    : "bg-slate-800 text-slate-200"
-                }`}
-              >
-                {isLeader ? "👑" : i + 1}
+              <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-800 text-3xl font-black text-slate-200 shadow-lg">
+                {i + 1}
               </span>
-              <span className="text-4xl font-extrabold tracking-wide text-white drop-shadow">
+              <span className="flex items-center gap-3 text-4xl font-extrabold tracking-wide text-white drop-shadow">
                 {t.name}
+                {isLeader && (
+                  <span
+                    className="text-3xl text-amber-300 drop-shadow-[0_0_10px_rgba(251,191,36,0.7)]"
+                    aria-label="First place"
+                    title="First place"
+                  >
+                    ⭐
+                  </span>
+                )}
               </span>
             </div>
-            <span
-              className={`font-mono text-6xl font-black tabular-nums ${
-                isLeader ? "text-amber-300" : "text-white"
-              }`}
-            >
+            <span className="font-mono text-6xl font-black tabular-nums text-white">
               {t.score}
             </span>
           </div>
@@ -856,6 +855,16 @@ function WinnerScreen({ live }: { live: LiveDisplay }) {
 /* PERSISTENT BOTTOM SCOREBOARD WITH ANIMATED DELTAS (+5 / -5)        */
 /* ------------------------------------------------------------------ */
 
+/** Playful per-team color identity, echoing the round-card palette above. */
+const TEAM_ACCENTS = [
+  { chip: "bg-indigo-500/25 border-indigo-400/50", badge: "bg-indigo-400 text-indigo-950" },
+  { chip: "bg-emerald-500/25 border-emerald-400/50", badge: "bg-emerald-400 text-emerald-950" },
+  { chip: "bg-purple-500/25 border-purple-400/50", badge: "bg-purple-400 text-purple-950" },
+  { chip: "bg-sky-500/25 border-sky-400/50", badge: "bg-sky-400 text-sky-950" },
+  { chip: "bg-amber-500/25 border-amber-400/50", badge: "bg-amber-400 text-amber-950" },
+  { chip: "bg-rose-500/25 border-rose-400/50", badge: "bg-rose-400 text-rose-950" },
+];
+
 function BottomScoreboardDock({
   scores,
   activeTeamId,
@@ -869,22 +878,21 @@ function BottomScoreboardDock({
   const maxScore = Math.max(0, ...scores.map((s) => s.score));
 
   return (
-    <footer className="relative z-30 border-t-2 border-white/10 bg-slate-950/85 px-8 py-4 shadow-[0_-15px_40px_rgba(0,0,0,0.6)] backdrop-blur-xl">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-4">
+    <footer className="relative z-30 border-t-2 border-white/10 bg-gradient-to-b from-slate-950/80 to-slate-950/95 px-6 py-5 shadow-[0_-15px_40px_rgba(0,0,0,0.6)] backdrop-blur-xl">
+      <div className="mx-auto flex flex-nowrap items-center justify-center gap-3 overflow-x-auto overflow-y-visible py-1">
         {scores.map((team, idx) => {
           const isActive = activeTeamId === team.id;
           const isLeader = team.score > 0 && team.score === maxScore;
           const teamDeltas = deltas.filter((d) => d.teamId === team.id);
+          const accent = TEAM_ACCENTS[idx % TEAM_ACCENTS.length];
 
           return (
             <div
               key={team.id}
-              className={`relative flex items-center gap-3 rounded-2xl border px-5 py-2.5 transition-all ${
-                isLeader
-                  ? "border-amber-400/80 bg-amber-500/15 shadow-[0_0_20px_rgba(251,191,36,0.2)]"
-                  : isActive
-                    ? "border-emerald-400/80 bg-emerald-500/15 shadow-[0_0_20px_rgba(16,185,129,0.2)] ring-2 ring-emerald-400/40"
-                    : "border-white/10 bg-white/5"
+              className={`relative flex flex-shrink-0 items-center gap-3 rounded-full border px-5 py-3 transition-all duration-300 ${accent.chip} ${
+                isActive
+                  ? "ring-2 ring-emerald-400/80 shadow-[0_0_24px_rgba(16,185,129,0.4)]"
+                  : "shadow-md"
               }`}
             >
               {/* Floating Score Delta Fireworks (+5 / -5) */}
@@ -892,7 +900,7 @@ function BottomScoreboardDock({
                 {teamDeltas.map((d) => (
                   <span
                     key={d.id}
-                    className={`font-mono text-2xl font-black ${
+                    className={`font-mono text-xl font-black ${
                       d.delta > 0
                         ? "animate-score-delta-up text-emerald-400 drop-shadow-[0_0_12px_rgba(52,211,153,0.9)]"
                         : "animate-score-delta-down text-rose-400 drop-shadow-[0_0_12px_rgba(244,63,94,0.9)]"
@@ -905,26 +913,29 @@ function BottomScoreboardDock({
 
               {/* Team Index (Preserved Order) */}
               <span
-                className={`flex h-8 w-8 items-center justify-center rounded-lg text-sm font-black ${
-                  isLeader
-                    ? "bg-amber-400 text-slate-950"
-                    : "bg-slate-800 text-slate-300"
-                }`}
+                className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-sm font-black shadow-inner ${accent.badge}`}
               >
-                {isLeader ? "👑" : idx + 1}
+                {idx + 1}
               </span>
 
               {/* Team Name */}
-              <span className="text-xl font-black tracking-wide text-white">
+              <span className="whitespace-nowrap text-lg font-black tracking-wide text-white">
                 {team.name}
               </span>
 
+              {/* First Place Star */}
+              {isLeader && (
+                <span
+                  className="animate-bounce flex-shrink-0 text-base text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]"
+                  aria-label="First place"
+                  title="First place"
+                >
+                  ⭐
+                </span>
+              )}
+
               {/* Team Score */}
-              <span
-                className={`font-mono text-2xl font-black tabular-nums ${
-                  isLeader ? "text-amber-300" : "text-slate-200"
-                }`}
-              >
+              <span className="font-mono text-2xl font-black tabular-nums text-white">
                 {team.score}
               </span>
             </div>

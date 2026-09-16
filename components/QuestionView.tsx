@@ -32,6 +32,9 @@ export function QuestionView() {
   const canSteal = session.teams.length > 1;
   const stealTeam = currentStealTeam(state);
   const audienceTurn = isAudienceSteal(state);
+  // Between steal turns the clock is left paused — the host decides when to
+  // start the next team's (or the audience's) attempt.
+  const pendingStealTurn = stealing && timer.endsAt === null && !awarded;
 
   return (
     <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.6fr_1fr]">
@@ -108,6 +111,7 @@ export function QuestionView() {
             <>
               {team && (
                 <Button
+                  className="w-full"
                   variant="success"
                   size="lg"
                   disabled={awarded}
@@ -118,6 +122,7 @@ export function QuestionView() {
               )}
               {allowSteals && canSteal && (
                 <Button
+                  className="w-full"
                   variant="amber"
                   size="md"
                   disabled={awarded}
@@ -127,6 +132,20 @@ export function QuestionView() {
                 </Button>
               )}
             </>
+          ) : pendingStealTurn ? (
+            <p className="text-center text-base font-semibold text-slate-300">
+              {audienceTurn ? (
+                <>
+                  Back around to {team?.name} — audience&apos;s turn.{" "}
+                  <span className="text-amber-300">No points awarded</span>
+                </>
+              ) : (
+                <>
+                  Next up: <span className="text-amber-300">{stealTeam?.name}</span>{" "}
+                  for +{stealPoints}
+                </>
+              )}
+            </p>
           ) : audienceTurn ? (
             <div>
               <p className="mb-3 text-center text-base font-semibold text-slate-300">
@@ -134,6 +153,7 @@ export function QuestionView() {
                 <span className="text-amber-300">No points awarded</span>
               </p>
               <Button
+                className="w-full"
                 variant="ghost"
                 size="md"
                 disabled={awarded}
@@ -149,6 +169,7 @@ export function QuestionView() {
                 is stealing for +{stealPoints}
               </p>
               <Button
+                className="w-full"
                 variant="success"
                 size="lg"
                 disabled={awarded}
@@ -168,22 +189,27 @@ export function QuestionView() {
             </div>
           )}
 
-          <div className="mt-2 grid grid-cols-2 gap-3">
+          {pendingStealTurn ? (
             <Button
-              variant="ghost"
+              className="mt-2 w-full"
+              variant="primary"
               size="md"
-              onClick={() => dispatch({ type: "CLOSE_QUESTION" })}
+              onClick={() => dispatch({ type: "START_STEAL_TURN" })}
             >
-              ← Board
+              {audienceTurn
+                ? "Audience's Turn →"
+                : `Next Team — ${stealTeam?.name} →`}
             </Button>
+          ) : (
             <Button
+              className="mt-2 w-full"
               variant="primary"
               size="md"
               onClick={() => dispatch({ type: "CLOSE_QUESTION" })}
             >
-              Next →
+              Back to Board →
             </Button>
-          </div>
+          )}
           <p className="mt-1 text-center text-sm text-slate-400">{round.name}</p>
         </div>
       </div>

@@ -143,6 +143,7 @@ export type Action =
   | { type: "RENAME_TEAM"; teamId: string; name: string }
   | { type: "REORDER_TEAMS"; teamIds: string[] }
   | { type: "RANDOMIZE_TEAMS" }
+  | { type: "REVERSE_TEAM_ORDER" }
   | { type: "START_GAME" }
   | { type: "NEW_GAME" }
   // navigation
@@ -157,6 +158,7 @@ export type Action =
   | { type: "AWARD_CORRECT" } // active team answered
   | { type: "OPEN_STEAL" }
   | { type: "STEAL_MISS" } // current steal attempt missed too — advance to the next team (or the audience)
+  | { type: "START_STEAL_TURN" } // host is ready — start the clock for the now-current steal team
   | { type: "AWARD_STEAL" } // current team in the steal order answered correctly
   | { type: "TOGGLE_PICTURE_TEAM"; teamId: string } // picture round
   | { type: "AWARD_PICTURE" }
@@ -374,6 +376,29 @@ function reducer(state: HostState, action: Action): HostState {
       };
     }
 
+    case "REVERSE_TEAM_ORDER": {
+      if (!state.session) return state;
+      const activeId = activeTeamIdOf(state.session);
+      const teams = [...state.session.teams]
+        .sort((a, b) => a.order - b.order)
+        .reverse()
+        .map((t, i) => ({ ...t, order: i }));
+      const teamOrder = teams.map((t) => t.id);
+      const activeTeamIndex = activeId ? teamOrder.indexOf(activeId) : -1;
+      return {
+        ...state,
+        session: {
+          ...state.session,
+          teams,
+          teamOrder,
+          activeTeamIndex:
+            activeTeamIndex >= 0
+              ? activeTeamIndex
+              : state.session.activeTeamIndex,
+        },
+      };
+    }
+
     case "START_GAME": {
       if (!state.session) return state;
       return {
@@ -506,15 +531,15 @@ function reducer(state: HostState, action: Action): HostState {
 
     case "OPEN_STEAL": {
       if (!state.session || state.awarded) return state;
-      const rawSteal = state.session.settings.stealAnswerSeconds;
-      const stealSeconds = rawSteal && rawSteal > 10 ? rawSteal : 20;
+      // Determine who's up next but leave the clock paused — the host starts
+      // it with START_STEAL_TURN once they're ready to announce the team.
       return {
         ...state,
         stealing: true,
         stealOrder: stealOrderFor(state.session),
         stealIndex: 0,
         revealed: false,
-        timer: startTimer(stealSeconds),
+        timer: IDLE_TIMER,
       };
     }
 
@@ -530,14 +555,20 @@ function reducer(state: HostState, action: Action): HostState {
           timer: IDLE_TIMER,
         };
       }
-      // Advance to the next team in line (or the audience, once the order is exhausted).
-      const rawSteal = state.session.settings.stealAnswerSeconds;
-      const stealSeconds = rawSteal && rawSteal > 10 ? rawSteal : 20;
+      // Advance to the next team in line (or the audience, once the order is
+      // exhausted), but leave the clock paused until the host starts it.
       return {
         ...state,
         stealIndex: state.stealIndex + 1,
-        timer: startTimer(stealSeconds),
+        timer: IDLE_TIMER,
       };
+    }
+
+    case "START_STEAL_TURN": {
+      if (!state.session || !state.stealing || state.awarded) return state;
+      const rawSteal = state.session.settings.stealAnswerSeconds;
+      const stealSeconds = rawSteal && rawSteal > 10 ? rawSteal : 20;
+      return { ...state, timer: startTimer(stealSeconds) };
     }
 
     case "AWARD_STEAL": {
@@ -773,7 +804,7 @@ export function buildLive(state: HostState): LiveDisplay | null {
         showAnswer: false,
         activeTeamId: null,
         activeTeamName: null,
-        message: "Choose a Round",
+        message: "Let's Begin!",
         timer: IDLE_TIMER,
       };
 

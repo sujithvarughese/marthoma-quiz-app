@@ -127,22 +127,14 @@ export function PictureView() {
             {pictureCorrect.length === 1 ? "" : "s"}
           </Button>
 
-          <div className="mt-2 grid grid-cols-2 gap-3">
-            <Button
-              variant="ghost"
-              size="md"
-              onClick={() => dispatch({ type: "CLOSE_QUESTION" })}
-            >
-              ← Board
-            </Button>
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() => dispatch({ type: "CLOSE_QUESTION" })}
-            >
-              Next →
-            </Button>
-          </div>
+          <Button
+            className="mt-2 w-full"
+            variant="primary"
+            size="md"
+            onClick={() => dispatch({ type: "CLOSE_QUESTION" })}
+          >
+            Back to Board →
+          </Button>
         </div>
       </div>
     </div>

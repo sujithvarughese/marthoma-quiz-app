@@ -37,9 +37,10 @@ export function TopBar() {
           <Button
             variant="ghost"
             size="sm"
+            aria-label="Home"
             onClick={() => dispatch({ type: "GO_HOME" })}
           >
-            ⌂ Home
+            <span className="text-2xl leading-none">⌂</span>
           </Button>
         )}
 
@@ -52,7 +53,7 @@ export function TopBar() {
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((o) => !o)}
           >
-            ⚙
+            <span className="text-2xl leading-none">⚙</span>
           </Button>
 
           {menuOpen && (
@@ -84,6 +85,16 @@ export function TopBar() {
                   }}
                 >
                   Teams / New game…
+                </button>
+                <button
+                  role="menuitem"
+                  className="block w-full px-4 py-3 text-left text-lg font-semibold text-slate-200 hover:bg-white/10"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    dispatch({ type: "REVERSE_TEAM_ORDER" });
+                  }}
+                >
+                  Reverse team order
                 </button>
               </div>
             </>
