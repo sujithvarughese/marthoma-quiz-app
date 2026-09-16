@@ -190,16 +190,45 @@ export function QuestionView() {
           )}
 
           {pendingStealTurn ? (
-            <Button
-              className="mt-2 w-full"
-              variant="primary"
-              size="md"
-              onClick={() => dispatch({ type: "START_STEAL_TURN" })}
-            >
-              {audienceTurn
-                ? "Audience's Turn →"
-                : `Next Team — ${stealTeam?.name} →`}
-            </Button>
+            <>
+              <Button
+                className="mt-2 w-full"
+                variant="primary"
+                size="md"
+                onClick={() => dispatch({ type: "START_STEAL_TURN" })}
+              >
+                {audienceTurn
+                  ? "Audience's Turn →"
+                  : `Next Team — ${stealTeam?.name} →`}
+              </Button>
+              <Button
+                className="w-full"
+                variant="ghost"
+                size="sm"
+                onClick={() => dispatch({ type: "UNDO_QUESTION" })}
+              >
+                ↺ Undo
+              </Button>
+            </>
+          ) : awarded ? (
+            <>
+              <Button
+                className="mt-2 w-full"
+                variant="primary"
+                size="md"
+                onClick={() => dispatch({ type: "CLOSE_QUESTION" })}
+              >
+                Back to Board →
+              </Button>
+              <Button
+                className="w-full"
+                variant="ghost"
+                size="sm"
+                onClick={() => dispatch({ type: "UNDO_QUESTION" })}
+              >
+                ↺ Undo
+              </Button>
+            </>
           ) : (
             <Button
               className="mt-2 w-full"

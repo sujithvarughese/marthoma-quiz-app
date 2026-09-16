@@ -137,9 +137,20 @@ export function RapidFire() {
               </div>
             )}
           </div>
+        </div>
 
-          <div className="mt-8 grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-6">
+          <div className="panel flex flex-col items-center p-8">
+            <CountdownTimer
+              endsAt={timer.endsAt}
+              durationSeconds={timer.durationSeconds}
+              label="Rapid fire"
+            />
+          </div>
+
+          <div className="panel flex flex-col gap-3 p-6">
             <Button
+              className="w-full"
               size="lg"
               variant="success"
               onClick={() => dispatch({ type: "RAPID_NEXT", correct: true })}
@@ -147,28 +158,22 @@ export function RapidFire() {
               ✓ Correct (+{rapidPoints})
             </Button>
             <Button
-              size="lg"
+              className="w-full"
+              size="md"
               variant="ghost"
               onClick={() => dispatch({ type: "RAPID_NEXT", correct: false })}
             >
               ✗ Skip
             </Button>
+            <Button
+              className="mt-2 w-full"
+              size="md"
+              variant="danger"
+              onClick={() => dispatch({ type: "RAPID_FINISH" })}
+            >
+              End round
+            </Button>
           </div>
-        </div>
-
-        <div className="panel flex flex-col items-center justify-between gap-6 p-8">
-          <CountdownTimer
-            endsAt={timer.endsAt}
-            durationSeconds={timer.durationSeconds}
-            label="Rapid fire"
-          />
-          <Button
-            size="md"
-            variant="danger"
-            onClick={() => dispatch({ type: "RAPID_FINISH" })}
-          >
-            End round
-          </Button>
         </div>
       </div>
     </div>

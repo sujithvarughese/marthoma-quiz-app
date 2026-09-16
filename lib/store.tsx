@@ -77,6 +77,8 @@ export interface HostState {
   stealIndex: number;
   pictureCorrect: string[]; // picture round: team ids marked correct
   awarded: boolean; // points already awarded for current question
+  /** The last points award for the current question, so UNDO_QUESTION can retract it. */
+  lastAward: { teamId: string; amount: number } | null;
 
   rapid: RapidState | null;
   timer: HostTimer;
@@ -160,6 +162,7 @@ export type Action =
   | { type: "STEAL_MISS" } // current steal attempt missed too — advance to the next team (or the audience)
   | { type: "START_STEAL_TURN" } // host is ready — start the clock for the now-current steal team
   | { type: "AWARD_STEAL" } // current team in the steal order answered correctly
+  | { type: "UNDO_QUESTION" } // retract the last decision (award + points, or open-steal) for the current question
   | { type: "TOGGLE_PICTURE_TEAM"; teamId: string } // picture round
   | { type: "AWARD_PICTURE" }
   | { type: "CLOSE_QUESTION" }
@@ -241,6 +244,7 @@ const CLEARED = {
   pictureCorrect: [] as string[],
   timer: IDLE_TIMER,
   awarded: false,
+  lastAward: null,
 } as const;
 
 /* ------------------------------------------------------------------ *
@@ -262,6 +266,7 @@ function makeInitialState(): HostState {
     rapid: null,
     timer: IDLE_TIMER,
     awarded: false,
+    lastAward: null,
   };
 }
 
@@ -502,6 +507,7 @@ function reducer(state: HostState, action: Action): HostState {
         stealIndex: 0,
         pictureCorrect: [],
         awarded: false,
+        lastAward: null,
         timer: startTimer(seconds),
       };
     }
@@ -513,16 +519,14 @@ function reducer(state: HostState, action: Action): HostState {
       if (!state.session || state.awarded) return state;
       const team = activeTeam(state);
       if (!team) return state;
+      const amount = state.session.settings.correctPoints;
       return {
         ...state,
         session: {
           ...state.session,
-          teams: award(
-            state.session.teams,
-            team.id,
-            state.session.settings.correctPoints,
-          ),
+          teams: award(state.session.teams, team.id, amount),
         },
+        lastAward: { teamId: team.id, amount },
         revealed: true,
         awarded: true,
         timer: IDLE_TIMER,
@@ -575,16 +579,43 @@ function reducer(state: HostState, action: Action): HostState {
       if (!state.session || state.awarded) return state;
       const team = currentStealTeam(state);
       if (!team) return state;
+      const amount = state.session.settings.stealPoints;
       return {
         ...state,
         session: {
           ...state.session,
-          teams: award(state.session.teams, team.id, state.session.settings.stealPoints),
+          teams: award(state.session.teams, team.id, amount),
         },
+        lastAward: { teamId: team.id, amount },
         stealing: false,
         revealed: true,
         awarded: true,
         timer: IDLE_TIMER,
+      };
+    }
+
+    case "UNDO_QUESTION": {
+      if (!state.session || !state.activeQuestionId) return state;
+      // Only meaningful once a decision has been made (points awarded, or
+      // paused between steal turns) — otherwise there's nothing to undo.
+      const pendingStealTurn = state.stealing && state.timer.endsAt === null;
+      if (!state.awarded && !pendingStealTurn) return state;
+      const round = currentRound(state);
+      const rawSeconds = state.session.settings.normalAnswerSeconds;
+      const seconds = rawSeconds && rawSeconds > 30 ? rawSeconds : 60;
+      const teams = state.lastAward
+        ? award(state.session.teams, state.lastAward.teamId, -state.lastAward.amount)
+        : state.session.teams;
+      return {
+        ...state,
+        session: { ...state.session, teams },
+        revealed: false,
+        stealing: false,
+        stealOrder: [],
+        stealIndex: 0,
+        awarded: false,
+        lastAward: null,
+        timer: round ? startTimer(seconds) : state.timer,
       };
     }
 
