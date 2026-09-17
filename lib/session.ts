@@ -73,7 +73,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
   pictureAnswerSeconds: 60,
   rapidFireSeconds: 60,
 
-  rapidFireQuestionCount: 6,
+  rapidFireQuestionCount: 5,
 
   allowSteals: true,
   rotateStartingTeam: true,

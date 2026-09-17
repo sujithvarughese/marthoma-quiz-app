@@ -13,6 +13,7 @@ import type { GameContent, QuestionDoc, RoundDoc } from "./content";
 import type { GameDoc, SessionState, SessionTeam } from "./session";
 import type { LiveDisplay } from "./live";
 import type { HostMirror } from "./hostMirror";
+import type { HostLock } from "./hostLock";
 
 /**
  * Server-only Firestore access via the Firebase Admin SDK. Credentials come
@@ -36,6 +37,7 @@ import type { HostMirror } from "./hostMirror";
  *   games/{gameId}/questions/{questionId}   → QuestionDoc
  *   games/{gameId}/live/display             → LiveDisplay
  *   games/{gameId}/live/host                → HostMirror
+ *   games/{gameId}/live/hostLock             → HostLock
  */
 
 const COLLECTION = "games";
@@ -234,4 +236,18 @@ export async function loadHostMirror(): Promise<HostMirror | null> {
   const snap = await gameRef().collection("live").doc("host").get();
   if (!snap.exists) return null;
   return snap.data() as HostMirror;
+}
+
+/* ------------------------------------------------------------------ *
+ * Host lock — arbitrates which single tab is allowed to control the game.
+ * ------------------------------------------------------------------ */
+
+export async function saveHostLock(lock: HostLock): Promise<void> {
+  await gameRef().collection("live").doc("hostLock").set(clean(lock));
+}
+
+export async function loadHostLock(): Promise<HostLock | null> {
+  const snap = await gameRef().collection("live").doc("hostLock").get();
+  if (!snap.exists) return null;
+  return snap.data() as HostLock;
 }

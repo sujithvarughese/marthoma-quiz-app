@@ -2,6 +2,7 @@
 
 import { useGame } from "@/lib/store";
 import { AdminGate } from "./AdminGate";
+import { HostLockGate } from "./HostLockGate";
 import { TopBar } from "./TopBar";
 import { Landing } from "./Landing";
 import { HomeScreen } from "./HomeScreen";
@@ -21,7 +22,9 @@ import { Scoreboard } from "./Scoreboard";
 export function QuizApp() {
   return (
     <AdminGate>
-      <HostShell />
+      <HostLockGate>
+        <HostShell />
+      </HostLockGate>
     </AdminGate>
   );
 }

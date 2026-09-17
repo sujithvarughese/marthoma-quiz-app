@@ -274,9 +274,10 @@ export function RapidFire() {
     );
   }
 
-  /* ---- In play: host transcribes what the team said ---- */
-  const currentQuestionId = rapid.queue[0] ?? null;
-  const current = getQuestion(state, currentQuestionId);
+  /* ---- In play: all of this team's questions on one page, current one
+   * highlighted with the answer box; the display mirrors whichever question
+   * is highlighted here (rapid.queue[0]), so nothing there needs to change. */
+  const activeQuestionId = rapid.queue[0] ?? null;
 
   const submitAnswer = () => {
     dispatch({ type: "RAPID_RECORD_ANSWER", text: answerText.trim() });
@@ -289,80 +290,121 @@ export function RapidFire() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="mx-auto max-w-4xl">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <h2 className="text-3xl font-black text-yellow-300">⚡ {teamName}</h2>
-        <div className="flex items-center gap-6 text-xl font-bold">
-          <span className="text-slate-300">
-            {answeredCount} / {rapid.questionIds.length} answered
-          </span>
-        </div>
+        <span className="text-xl font-bold text-slate-300">
+          {answeredCount} / {rapid.questionIds.length} answered
+        </span>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
-        <div className="panel flex min-h-[40vh] flex-col justify-center gap-6 p-8">
-          <p className="text-4xl font-bold leading-snug sm:text-5xl">
-            {current?.question}
-          </p>
+      <div className="panel mb-6 flex flex-col items-center p-6">
+        <CountdownTimer
+          endsAt={timer.endsAt}
+          durationSeconds={timer.durationSeconds}
+          label="Rapid fire"
+          size="md"
+        />
+      </div>
 
-          <div>
-            <label
-              htmlFor="rapid-answer"
-              className="text-xs font-bold uppercase tracking-widest text-slate-400"
-            >
-              What did they say?
-            </label>
-            <input
-              id="rapid-answer"
-              type="text"
-              autoFocus
-              value={answerText}
-              onChange={(e) => setAnswerText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") submitAnswer();
-              }}
-              placeholder="Type the team's answer…"
-              className="mt-2 w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-2xl font-semibold text-white placeholder:text-slate-500 focus:border-emerald-400/60 focus:outline-none"
-            />
-          </div>
-        </div>
+      <div className="flex flex-col gap-3">
+        {rapid.questionIds.map((qid, i) => {
+          const q = getQuestion(state, qid);
+          const isActive = qid === activeQuestionId;
+          const isAnswered = qid in rapid.answers;
+          const answerGiven = rapid.answers[qid]?.trim();
 
-        <div className="flex flex-col gap-6">
-          <div className="panel flex flex-col items-center p-8">
-            <CountdownTimer
-              endsAt={timer.endsAt}
-              durationSeconds={timer.durationSeconds}
-              label="Rapid fire"
-            />
-          </div>
+          return (
+            <div
+              key={qid}
+              className={`panel flex flex-col gap-2 p-5 transition-colors ${
+                isActive ? "border-2 border-amber-400/70" : ""
+              }`}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                    Q{i + 1} · {q?.question}
+                  </p>
+                  {isAnswered && (
+                    <p className="mt-1 text-xl font-bold text-white">
+                      {answerGiven || (
+                        <span className="italic text-slate-500">
+                          No answer given
+                        </span>
+                      )}
+                    </p>
+                  )}
+                </div>
 
-          <div className="panel flex flex-col gap-3 p-6">
-            <Button
-              className="w-full"
-              size="lg"
-              variant="success"
-              onClick={submitAnswer}
-            >
-              ✓ Answered
-            </Button>
-            <Button
-              className="w-full"
-              size="md"
-              variant="ghost"
-              onClick={skipQuestion}
-            >
-              ↷ Skip — come back to it later
-            </Button>
-            <Button
-              className="mt-2 w-full"
-              size="md"
-              variant="danger"
-              onClick={() => dispatch({ type: "RAPID_FINISH" })}
-            >
-              End round
-            </Button>
-          </div>
-        </div>
+                {isAnswered ? (
+                  <span className="rounded-full bg-emerald-500/20 px-4 py-1.5 text-sm font-black text-emerald-300">
+                    ✓ Answered
+                  </span>
+                ) : (
+                  !isActive && (
+                    <span className="rounded-full bg-white/10 px-4 py-1.5 text-sm font-semibold text-slate-400">
+                      Pending
+                    </span>
+                  )
+                )}
+              </div>
+
+              {isActive && (
+                <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end">
+                  <div className="flex-1">
+                    <label
+                      htmlFor="rapid-answer"
+                      className="text-xs font-bold uppercase tracking-widest text-slate-400"
+                    >
+                      What did they say?
+                    </label>
+                    <input
+                      id="rapid-answer"
+                      type="text"
+                      autoFocus
+                      value={answerText}
+                      onChange={(e) => setAnswerText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") submitAnswer();
+                      }}
+                      placeholder="Type the team's answer…"
+                      className="mt-2 w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-xl font-semibold text-white placeholder:text-slate-500 focus:border-emerald-400/60 focus:outline-none"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      className="flex-1 sm:flex-none"
+                      variant="success"
+                      size="md"
+                      onClick={submitAnswer}
+                    >
+                      ✓ Answered
+                    </Button>
+                    <Button
+                      className="flex-1 sm:flex-none"
+                      variant="ghost"
+                      size="md"
+                      onClick={skipQuestion}
+                    >
+                      ↷ Skip
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-6 flex justify-center">
+        <Button
+          size="md"
+          variant="danger"
+          onClick={() => dispatch({ type: "RAPID_FINISH" })}
+        >
+          End round
+        </Button>
       </div>
     </div>
   );

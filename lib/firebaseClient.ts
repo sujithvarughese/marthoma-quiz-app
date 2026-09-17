@@ -24,6 +24,7 @@ import type { GameContent, QuestionDoc, RoundDoc } from "./content";
 import type { SessionTeam } from "./session";
 import { isLiveDisplay, type LiveDisplay } from "./live";
 import { isHostMirror, type HostMirror } from "./hostMirror";
+import { isHostLock, type HostLock } from "./hostLock";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -197,6 +198,17 @@ export function subscribeHostMirror(
   cb: (mirror: HostMirror | null) => void,
 ): () => void {
   return subscribeLiveDoc("host", isHostMirror, cb);
+}
+
+/**
+ * Subscribe to the host lock doc — every /host tab watches this to know
+ * whether it currently owns control of the game. Same reconnect behavior as
+ * subscribeLive.
+ */
+export function subscribeHostLock(
+  cb: (lock: HostLock | null) => void,
+): () => void {
+  return subscribeLiveDoc("hostLock", isHostLock, cb);
 }
 
 /** Subscribe to team scores (ordered). Returns an unsubscribe function. */

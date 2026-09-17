@@ -32,7 +32,8 @@ import {
   type LiveTimer,
 } from "./live";
 import type { HostMirror } from "./hostMirror";
-import { loadContent, subscribeHostMirror } from "./firebaseClient";
+import type { HostLock } from "./hostLock";
+import { loadContent, subscribeHostLock, subscribeHostMirror } from "./firebaseClient";
 
 /* ------------------------------------------------------------------ *
  * Host-side state: read-only content + durable session + transient view.
@@ -1310,8 +1311,14 @@ export function buildHostMirror(state: HostState): HostMirror {
  * ------------------------------------------------------------------ */
 
 const HOST_CODE_KEY = "church-quiz-app:hostCode";
+const HOST_CLIENT_ID_KEY = "church-quiz-app:hostClientId";
 const SESSION_DEBOUNCE_MS = 350;
 const LIVE_DEBOUNCE_MS = 150;
+
+/** A lock not renewed in this long is treated as abandoned and up for grabs. */
+const HOST_LOCK_TIMEOUT_MS = 12_000;
+/** How often the owning tab renews its lock. */
+const HOST_LOCK_HEARTBEAT_MS = 4_000;
 
 export type SyncStatus =
   | "loading"
@@ -1322,6 +1329,14 @@ export type SyncStatus =
   | "disabled"
   | "watching"; // speaker screen: read-only, mirroring the host live
 
+/**
+ * Which tab currently controls the game. "owner" is the only state allowed
+ * to save the session or publish the display/speaker docs — every other
+ * open /host tab sits in "locked-out" so it can never silently overwrite
+ * the active host's game with its own stale local state.
+ */
+export type HostLockStatus = "loading" | "owner" | "locked-out";
+
 function hostHeaders(): Record<string, string> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (typeof window !== "undefined") {
@@ -1331,9 +1346,30 @@ function hostHeaders(): Record<string, string> {
   return headers;
 }
 
+/** Stable id for this browser tab (sessionStorage, not shared across tabs —
+ * a duplicated or reopened tab is deliberately treated as a new session). */
+function getOrCreateClientId(): string {
+  if (typeof window === "undefined") return "server";
+  try {
+    const existing = window.sessionStorage.getItem(HOST_CLIENT_ID_KEY);
+    if (existing) return existing;
+    const id = crypto.randomUUID();
+    window.sessionStorage.setItem(HOST_CLIENT_ID_KEY, id);
+    return id;
+  } catch {
+    return crypto.randomUUID();
+  }
+}
+
 interface SyncApi {
   status: SyncStatus;
   setHostCode: (code: string) => void;
+  lockStatus: HostLockStatus;
+  /** Epoch ms of the current lock holder's last heartbeat, or null before
+   * the lock doc has loaded — used to show "last seen Ns ago" when locked out. */
+  lockUpdatedAt: number | null;
+  /** Force-claim the lock even though another tab actively holds it. */
+  takeOverHost: () => void;
 }
 
 const StateContext = createContext<HostState | null>(null);
@@ -1352,6 +1388,7 @@ const noopDispatch: Dispatch<Action> = () => {};
 function usePublisher<T>(
   url: string,
   hydratedRef: { current: boolean },
+  canWriteRef: { current: boolean },
   build: () => T | null,
   debounceMs: number,
   deps: unknown[],
@@ -1364,12 +1401,13 @@ function usePublisher<T>(
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!hydratedRef.current) return;
+    if (!hydratedRef.current || !canWriteRef.current) return;
     const payload = build();
     if (!payload) return;
     latestRef.current = payload;
 
     const doPublish = async () => {
+      if (!canWriteRef.current) return;
       if (inFlightRef.current) {
         pendingRef.current = true;
         return;
@@ -1424,6 +1462,93 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const hydratedRef = useRef(false);
   const sessionTimer = useRef<number | null>(null);
 
+  // --- Host lock: only the tab that owns it may write anything below. ---
+  const [clientId] = useState(getOrCreateClientId);
+  const [lock, setLock] = useState<HostLock | null>(null);
+  const [lockLoaded, setLockLoaded] = useState(false);
+  const lockRef = useRef<HostLock | null>(null);
+  const isOwnerRef = useRef(false);
+  const claimingRef = useRef(false);
+  const isOwner = lockLoaded && lock !== null && lock.clientId === clientId;
+
+  // Keep the "latest value" refs in sync after each commit — read by the
+  // effects below and by usePublisher, never during render.
+  useEffect(() => {
+    lockRef.current = lock;
+    isOwnerRef.current = isOwner;
+  });
+
+  // Writes are fire-and-forget: the state transition to "owner" happens only
+  // once the subscribeHostLock echo comes back, never optimistically here —
+  // that keeps this a pure "synchronize with an external system" effect.
+  const writeLock = useCallback(
+    async (claimedAt: number) => {
+      const payload: HostLock = { clientId, claimedAt, updatedAt: Date.now() };
+      try {
+        await fetch("/api/host-lock", {
+          method: "PUT",
+          headers: hostHeaders(),
+          body: JSON.stringify(payload),
+        });
+      } catch (err) {
+        console.warn("Host lock claim failed, will retry on next check:", err);
+      }
+    },
+    [clientId],
+  );
+
+  useEffect(() => subscribeHostLock((l) => {
+    setLock(l);
+    setLockLoaded(true);
+  }), []);
+
+  // Auto-claim an empty or abandoned lock — but never one another tab is
+  // actively renewing, so two tabs opened around the same time settle on a
+  // single owner instead of fighting over it.
+  useEffect(() => {
+    if (!lockLoaded || isOwner || claimingRef.current) return;
+    const stale = !lock || Date.now() - lock.updatedAt > HOST_LOCK_TIMEOUT_MS;
+    if (!stale) return;
+    claimingRef.current = true;
+    void writeLock(Date.now()).finally(() => {
+      claimingRef.current = false;
+    });
+  }, [lockLoaded, lock, isOwner, writeLock]);
+
+  // Heartbeat while owning, so this tab keeps its claim renewed.
+  useEffect(() => {
+    if (!isOwner) return;
+    const id = window.setInterval(() => {
+      void writeLock(lockRef.current?.claimedAt ?? Date.now());
+    }, HOST_LOCK_HEARTBEAT_MS);
+    return () => window.clearInterval(id);
+  }, [isOwner, writeLock]);
+
+  const takeOverHost = useCallback(() => {
+    void writeLock(Date.now());
+  }, [writeLock]);
+
+  // Re-sync from the server whenever this tab (re)gains ownership — it may
+  // have been sitting locked-out for a while with stale local session state.
+  useEffect(() => {
+    if (!isOwner) return;
+    (async () => {
+      try {
+        const res = await fetch("/api/state", { cache: "no-store" });
+        if (res.ok) {
+          const data = (await res.json()) as { session: SessionState | null };
+          if (data.session) {
+            dispatch({ type: "HYDRATE_SESSION", session: data.session });
+          }
+        }
+      } catch (err) {
+        console.warn("Re-sync on host takeover failed:", err);
+      } finally {
+        hydratedRef.current = true;
+      }
+    })();
+  }, [isOwner]);
+
   // Initial load: content (client SDK) + session (server route).
   useEffect(() => {
     let cancelled = false;
@@ -1459,9 +1584,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const { session } = state;
 
-  // Persist the session (game doc + teams) whenever it changes.
+  // Persist the session (game doc + teams) whenever it changes. Gated on
+  // owning the host lock — a locked-out tab must never overwrite the active
+  // host's session with its own stale local state.
   useEffect(() => {
-    if (!hydratedRef.current || !session) return;
+    if (!hydratedRef.current || !session || !isOwnerRef.current) return;
     setStatus((s) => (s === "disabled" || s === "locked" ? s : "saving"));
     if (sessionTimer.current) window.clearTimeout(sessionTimer.current);
     sessionTimer.current = window.setTimeout(async () => {
@@ -1486,6 +1613,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   usePublisher(
     "/api/live",
     hydratedRef,
+    isOwnerRef,
     () => buildLive(state),
     LIVE_DEBOUNCE_MS,
     [state],
@@ -1493,6 +1621,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   usePublisher(
     "/api/host-mirror",
     hydratedRef,
+    isOwnerRef,
     () => buildHostMirror(state),
     LIVE_DEBOUNCE_MS,
     [state],
@@ -1505,7 +1634,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const sync: SyncApi = { status, setHostCode };
+  const lockStatus: HostLockStatus = !lockLoaded
+    ? "loading"
+    : isOwner
+      ? "owner"
+      : "locked-out";
+
+  const sync: SyncApi = {
+    status,
+    setHostCode,
+    lockStatus,
+    lockUpdatedAt: lock?.updatedAt ?? null,
+    takeOverHost,
+  };
 
   return (
     <StateContext.Provider value={state}>
@@ -1566,7 +1707,14 @@ export function SpeakerProvider({ children }: { children: ReactNode }) {
     ? { ...base, ...mirror, content, loaded: mirror.loaded && content !== null }
     : { ...base, content, loaded: false };
 
-  const sync: SyncApi = { status: "watching", setHostCode: () => {} };
+  // The host lock doesn't apply to a read-only viewer — these are unused here.
+  const sync: SyncApi = {
+    status: "watching",
+    setHostCode: () => {},
+    lockStatus: "owner",
+    lockUpdatedAt: null,
+    takeOverHost: () => {},
+  };
 
   return (
     <StateContext.Provider value={state}>
