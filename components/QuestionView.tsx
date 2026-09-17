@@ -6,6 +6,7 @@ import {
   currentRound,
   currentStealTeam,
   getQuestion,
+  isAudienceQuestion,
   isAudienceSteal,
   useDispatch,
   useGame,
@@ -34,6 +35,7 @@ export function QuestionView() {
   const canSteal = session.teams.length > 1;
   const stealTeam = currentStealTeam(state);
   const audienceTurn = isAudienceSteal(state);
+  const roundAudienceTurn = isAudienceQuestion(state);
   // Between steal turns the clock is left paused — the host decides when to
   // start the next team's (or the audience's) attempt.
   const pendingStealTurn = stealing && timer.endsAt === null && !awarded;
@@ -49,6 +51,11 @@ export function QuestionView() {
           <span className="rounded-full bg-indigo-500 px-4 py-1.5 text-xl font-black text-white">
             {q.category}
           </span>
+          {roundAudienceTurn && (
+            <span className="rounded-full bg-fuchsia-500 px-4 py-1.5 text-xl font-black text-white">
+              🎉 Bonus · Audience&apos;s turn
+            </span>
+          )}
           {stealing && (
             <span className="rounded-full bg-amber-500 px-4 py-1.5 text-xl font-black text-slate-900">
               {audienceTurn
@@ -104,16 +111,34 @@ export function QuestionView() {
                 ? audienceTurn
                   ? "Audience · no points"
                   : `${stealTeam?.name ?? "Steal"} · ${stealPoints} pts`
-                : team
-                  ? `${team.name}'s turn`
-                  : "Answer"
+                : roundAudienceTurn
+                  ? "Audience · no points"
+                  : team
+                    ? `${team.name}'s turn`
+                    : "Answer"
             }
           />
         </div>
 
         <div className="panel flex flex-col gap-3 p-6">
           {!stealing ? (
-            pendingQuestionStart ? (
+            roundAudienceTurn ? (
+              pendingQuestionStart ? (
+                <Button
+                  className="w-full"
+                  variant="success"
+                  size="lg"
+                  onClick={() => dispatch({ type: "START_QUESTION_TIMER" })}
+                >
+                  ▶ Start Timer
+                </Button>
+              ) : (
+                <p className="text-center text-base font-semibold text-slate-300">
+                  🎉 Open to the whole audience —{" "}
+                  <span className="text-amber-300">no points awarded</span>
+                </p>
+              )
+            ) : pendingQuestionStart ? (
               <Button
                 className="w-full"
                 variant="success"

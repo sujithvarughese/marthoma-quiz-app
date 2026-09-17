@@ -564,7 +564,7 @@ function BoardScreen({
       </header>
 
       {/* Grid of Jeopardy Numbered Cards */}
-      <div className="my-auto grid flex-1 grid-cols-5 content-center gap-8 py-8">
+      <div className="my-auto grid flex-1 grid-cols-2 content-center gap-8 py-8 sm:grid-cols-4">
         {tiles.map((tile, i) => (
           <div
             key={tile.questionId}
@@ -599,13 +599,13 @@ function BoardScreen({
 function QuestionScreen({ live }: { live: LiveDisplay }) {
   const tiles = live.board ?? [];
   const questionNum = live.questionNumber ?? 1;
-  const tileIndex = Math.max(0, Math.min(9, questionNum - 1));
-  const cols = 5;
-  const colIndex = tileIndex % cols; // 0, 1, 2, 3, 4
+  const cols = 4;
+  const tileIndex = Math.max(0, Math.min(tiles.length - 1, questionNum - 1));
+  const colIndex = tileIndex % cols; // 0, 1, 2, 3
   const rowIndex = Math.floor(tileIndex / cols); // 0, 1
 
   // Compute 2D center offset to launch card directly from number tile position
-  const launchX = (colIndex - 2) * 215;
+  const launchX = (colIndex - (cols - 1) / 2) * 215;
   const launchY = rowIndex === 0 ? -115 : 115;
 
   return (
@@ -623,7 +623,7 @@ function QuestionScreen({ live }: { live: LiveDisplay }) {
               </h1>
             </div>
           </header>
-          <div className="my-auto grid flex-1 grid-cols-5 content-center gap-8 py-8">
+          <div className="my-auto grid flex-1 grid-cols-2 content-center gap-8 py-8 sm:grid-cols-4">
             {tiles.map((tile) => {
               const isSelectedTile = tile.order === questionNum;
               return (
@@ -664,7 +664,9 @@ function QuestionScreen({ live }: { live: LiveDisplay }) {
         <ActiveBanner live={live} />
       </header>
 
-      {/* 3D Fold-Out Jeopardy Question Card launching from Number Tile */}
+      {/* Card Flip Reveal: the chosen tile travels from its board position to
+          center stage while physically flipping from face-down to the
+          question — slow and deliberate so the audience can watch it happen. */}
       <div
         key={live.questionId ?? `q-${live.questionNumber}`}
         className="perspective-1500 relative z-10 my-auto flex flex-1 flex-col items-center justify-center py-6"
@@ -674,43 +676,58 @@ function QuestionScreen({ live }: { live: LiveDisplay }) {
             {
               "--launch-x": `${launchX}px`,
               "--launch-y": `${launchY}px`,
-              "--launch-scale": "0.16",
+              "--launch-scale": "0.2",
             } as React.CSSProperties
           }
-          className="animate-card-launch relative flex w-full max-w-6xl flex-col items-center justify-center rounded-3xl border-4 border-amber-400/80 bg-gradient-to-br from-[#0a1945] via-[#102d84] to-[#071337] p-12 text-center shadow-[0_20px_70px_rgba(0,0,0,0.8),0_0_50px_rgba(251,191,36,0.35)] select-none"
+          className="animate-card-reveal-travel relative w-full max-w-6xl"
         >
-          {/* Inner Golden Trim Frame */}
-          <div className="pointer-events-none absolute inset-3 rounded-2xl border-2 border-amber-400/30" />
-
-          {/* Number Watermark Badge */}
-          {live.questionNumber && (
-            <div className="pointer-events-none absolute top-4 left-6 select-none font-mono text-7xl font-black text-amber-300/15">
-              #{live.questionNumber}
+          <div className="animate-card-reveal-flip relative grid">
+            {/* FRONT FACE — face-down tile, shown before the flip */}
+            <div className="card-face relative flex flex-col items-center justify-center rounded-3xl border-4 border-amber-400/80 bg-gradient-to-br from-[#0a2569] via-[#103b9b] to-[#081844] p-12 text-center shadow-[0_20px_70px_rgba(0,0,0,0.8),0_0_50px_rgba(251,191,36,0.35)] select-none">
+              <div className="pointer-events-none absolute inset-3 rounded-2xl border-2 border-amber-400/30" />
+              {live.questionNumber && (
+                <span className="font-mono text-9xl font-black text-amber-300 drop-shadow-[0_4px_16px_rgba(0,0,0,0.9)]">
+                  {live.questionNumber}
+                </span>
+              )}
             </div>
-          )}
 
-          {live.imageUrl && (
-            <div className="relative z-10 mb-8 overflow-hidden rounded-2xl border-2 border-amber-400/50 shadow-2xl">
-              <img
-                src={live.imageUrl}
-                alt="Question visual"
-                className="max-h-[38vh] w-auto object-contain"
-              />
+            {/* BACK FACE — the actual question, revealed by the flip */}
+            <div className="card-face card-face-back relative flex flex-col items-center justify-center rounded-3xl border-4 border-amber-400/80 bg-gradient-to-br from-[#0a1945] via-[#102d84] to-[#071337] p-12 text-center shadow-[0_20px_70px_rgba(0,0,0,0.8),0_0_50px_rgba(251,191,36,0.35)] select-none">
+              {/* Inner Golden Trim Frame */}
+              <div className="pointer-events-none absolute inset-3 rounded-2xl border-2 border-amber-400/30" />
+
+              {/* Number Watermark Badge */}
+              {live.questionNumber && (
+                <div className="pointer-events-none absolute top-4 left-6 select-none font-mono text-7xl font-black text-amber-300/15">
+                  #{live.questionNumber}
+                </div>
+              )}
+
+              {live.imageUrl && (
+                <div className="relative z-10 mb-8 overflow-hidden rounded-2xl border-2 border-amber-400/50 shadow-2xl">
+                  <img
+                    src={live.imageUrl}
+                    alt="Question visual"
+                    className="max-h-[38vh] w-auto object-contain"
+                  />
+                </div>
+              )}
+
+              <p className="relative z-10 max-w-5xl text-5xl font-extrabold leading-snug tracking-wide text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.9)] sm:text-6xl">
+                {live.question}
+              </p>
+
+              {live.timer?.endsAt != null && (
+                <div className="relative z-10 mt-10">
+                  <CountdownTimer
+                    endsAt={live.timer.endsAt}
+                    durationSeconds={live.timer.durationSeconds}
+                  />
+                </div>
+              )}
             </div>
-          )}
-
-          <p className="relative z-10 max-w-5xl text-5xl font-extrabold leading-snug tracking-wide text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.9)] sm:text-6xl">
-            {live.question}
-          </p>
-
-          {live.timer?.endsAt != null && (
-            <div className="relative z-10 mt-10">
-              <CountdownTimer
-                endsAt={live.timer.endsAt}
-                durationSeconds={live.timer.durationSeconds}
-              />
-            </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

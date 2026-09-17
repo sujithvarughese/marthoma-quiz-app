@@ -316,26 +316,38 @@ body {
   animation: goldGlowPulse 2.5s infinite ease-in-out;
 }
 
-@keyframes cardLaunchFromTile {
+/*
+ * Card reveal: the selected board tile travels from its grid position to
+ * center stage (cardRevealTravel, on the outer wrapper) while physically
+ * flipping over from its face-down side to the question side
+ * (cardRevealFlip, on the inner two-sided card) — slow enough for the
+ * audience to watch the whole motion.
+ */
+@keyframes cardRevealTravel {
   0% {
     opacity: 0.95;
-    transform: translate3d(var(--launch-x, 0px), var(--launch-y, 0px), 0) scale(var(--launch-scale, 0.16)) rotateY(-18deg) rotateX(8deg);
+    transform: translate3d(var(--launch-x, 0px), var(--launch-y, 0px), 0) scale(var(--launch-scale, 0.2));
   }
-  30% {
+  35% {
     opacity: 1;
-    transform: translate3d(calc(var(--launch-x, 0px) * 0.65), calc(var(--launch-y, 0px) * 0.65), 0) scale(0.42) rotateY(-8deg) rotateX(4deg);
+    transform: translate3d(calc(var(--launch-x, 0px) * 0.45), calc(var(--launch-y, 0px) * 0.45), 0) scale(0.62);
   }
-  70% {
+  75% {
     opacity: 1;
-    transform: translate3d(calc(var(--launch-x, 0px) * 0.12), calc(var(--launch-y, 0px) * 0.12), 0) scale(0.94) rotateY(3deg) rotateX(-2deg);
-  }
-  88% {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1.02) rotateY(-1deg) rotateX(1deg);
+    transform: translate3d(calc(var(--launch-x, 0px) * 0.06), calc(var(--launch-y, 0px) * 0.06), 0) scale(0.98);
   }
   100% {
     opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1) rotateY(0deg) rotateX(0deg);
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes cardRevealFlip {
+  0% {
+    transform: rotateY(0deg);
+  }
+  100% {
+    transform: rotateY(180deg);
   }
 }
 
@@ -413,11 +425,28 @@ body {
   }
 }
 
-.animate-card-launch {
-  animation: cardLaunchFromTile 0.72s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+.animate-card-reveal-travel {
+  animation: cardRevealTravel 2s cubic-bezier(0.22, 0.61, 0.28, 1) forwards;
   transform-origin: center center;
   will-change: transform, opacity;
+}
+
+.animate-card-reveal-flip {
+  animation: cardRevealFlip 2s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+/* Both faces stack in the same grid cell so the card's footprint stays
+   stable across the flip regardless of which face is taller. */
+.card-face {
+  grid-area: 1 / 1;
   backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.card-face-back {
+  transform: rotateY(180deg);
 }
 
 .animate-tile-chosen {

@@ -144,6 +144,42 @@ export function currentStealTeam(state: HostState): SessionTeam | null {
   return state.session.teams.find((t) => t.id === id) ?? null;
 }
 
+/** How many of this round's questions have already been played. */
+function roundPlayedCount(session: SessionState, round: RoundDoc): number {
+  return round.questionIds.filter((id) => session.usedQuestionIds.includes(id))
+    .length;
+}
+
+/**
+ * Once every team has had one turn in a standard round, the remaining
+ * questions are open "for fun" bonus questions for the whole audience — no
+ * team is assigned and no points are awarded. The Picture Round is exempt
+ * (everyone already plays every question there).
+ */
+export function isAudienceQuestion(state: HostState): boolean {
+  const { session } = state;
+  const round = currentRound(state);
+  if (!session || !round || round.type !== "standard") return false;
+  const teamCount = session.teamOrder.length;
+  if (teamCount === 0) return false;
+  return roundPlayedCount(session, round) > teamCount;
+}
+
+/**
+ * Same check as isAudienceQuestion, but for the *next* question about to be
+ * picked from the board (before it's marked used) — lets the board show
+ * "up next: audience" ahead of time.
+ */
+export function isNextRoundQuestionAudienceTurn(
+  session: SessionState,
+  round: RoundDoc,
+): boolean {
+  if (round.type !== "standard") return false;
+  const teamCount = session.teamOrder.length;
+  if (teamCount === 0) return false;
+  return roundPlayedCount(session, round) >= teamCount;
+}
+
 /** Teams sorted highest-score first (stable by roster order on ties). */
 export function rankedTeams(teams: SessionTeam[]): SessionTeam[] {
   return [...teams].sort((a, b) => b.score - a.score || a.order - b.order);
@@ -590,7 +626,7 @@ function reducer(state: HostState, action: Action): HostState {
       return { ...state, revealed: true, stealing: false, timer: IDLE_TIMER };
 
     case "AWARD_CORRECT": {
-      if (!state.session || state.awarded) return state;
+      if (!state.session || state.awarded || isAudienceQuestion(state)) return state;
       const team = activeTeam(state);
       if (!team) return state;
       const amount = state.session.settings.correctPoints;
@@ -608,7 +644,7 @@ function reducer(state: HostState, action: Action): HostState {
     }
 
     case "OPEN_STEAL": {
-      if (!state.session || state.awarded) return state;
+      if (!state.session || state.awarded || isAudienceQuestion(state)) return state;
       // Determine who's up next but leave the clock paused — the host starts
       // it with START_STEAL_TURN once they're ready to announce the team.
       return {
@@ -724,9 +760,10 @@ function reducer(state: HostState, action: Action): HostState {
     case "CLOSE_QUESTION": {
       if (!state.session) return state;
       const round = currentRound(state);
-      // Rotate the starting team only after a standard question.
+      // Rotate the starting team only after a standard question that had an
+      // assigned team — audience bonus questions don't consume a turn.
       const activeTeamIndex =
-        round && round.type === "standard"
+        round && round.type === "standard" && !isAudienceQuestion(state)
           ? rotate(state.session)
           : state.session.activeTeamIndex;
       return {
@@ -1079,6 +1116,7 @@ export function buildLive(state: HostState): LiveDisplay | null {
         order: i + 1,
         used: session.usedQuestionIds.includes(id),
       }));
+      const nextAudienceTurn = isNextRoundQuestionAudienceTurn(session, round);
       return {
         ...base,
         screen: "board",
@@ -1086,8 +1124,11 @@ export function buildLive(state: HostState): LiveDisplay | null {
         roundName: round.name,
         roundDescription: round.description ?? null,
         roundOrder: round.order,
-        activeTeamId: team?.id ?? null,
-        activeTeamName: team?.name ?? null,
+        activeTeamId: nextAudienceTurn ? null : team?.id ?? null,
+        activeTeamName: nextAudienceTurn ? null : team?.name ?? null,
+        message: nextAudienceTurn
+          ? "🎉 Bonus question — audience's turn! No points"
+          : null,
         board,
         timer: IDLE_TIMER,
       };
@@ -1103,7 +1144,8 @@ export function buildLive(state: HostState): LiveDisplay | null {
         used: session.usedQuestionIds.includes(id),
       }));
       const stealTeam = currentStealTeam(state);
-      const audienceTurn = isAudienceSteal(state);
+      const stealAudienceTurn = isAudienceSteal(state);
+      const roundAudienceTurn = isAudienceQuestion(state);
       return {
         ...base,
         screen,
@@ -1117,13 +1159,23 @@ export function buildLive(state: HostState): LiveDisplay | null {
         answer: state.revealed ? q.answer : null,
         imageUrl: null,
         showAnswer: state.revealed,
-        activeTeamId: state.stealing ? (stealTeam?.id ?? null) : team?.id ?? null,
-        activeTeamName: state.stealing ? (stealTeam?.name ?? null) : team?.name ?? null,
-        message: state.stealing
-          ? audienceTurn
-            ? "Audience steal — no points!"
-            : `Steal attempt: ${stealTeam?.name ?? ""}`
-          : null,
+        activeTeamId: roundAudienceTurn
+          ? null
+          : state.stealing
+            ? (stealTeam?.id ?? null)
+            : (team?.id ?? null),
+        activeTeamName: roundAudienceTurn
+          ? null
+          : state.stealing
+            ? (stealTeam?.name ?? null)
+            : (team?.name ?? null),
+        message: roundAudienceTurn
+          ? "🎉 Bonus question — audience's turn! No points"
+          : state.stealing
+            ? stealAudienceTurn
+              ? "Audience steal — no points!"
+              : `Steal attempt: ${stealTeam?.name ?? ""}`
+            : null,
         board,
       };
     }

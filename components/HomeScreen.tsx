@@ -37,12 +37,18 @@ export function HomeScreen() {
           const remaining = round.questionIds.filter(
             (id) => !used.has(id),
           ).length;
+          const completed = remaining === 0;
           return (
             <button
               key={round.id}
               onClick={() => dispatch({ type: "OPEN_ROUND", roundId: round.id })}
-              className={`group relative flex flex-col justify-between overflow-hidden rounded-3xl bg-gradient-to-br ${ROUND_ACCENTS[i % ROUND_ACCENTS.length]} p-6 text-left shadow-xl transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/50`}
+              className={`group relative flex flex-col justify-between overflow-hidden rounded-3xl bg-gradient-to-br ${ROUND_ACCENTS[i % ROUND_ACCENTS.length]} p-6 text-left shadow-xl transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/50 ${completed ? "opacity-60" : ""}`}
             >
+              {completed && (
+                <span className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1 text-xs font-black uppercase tracking-wide text-white shadow-lg">
+                  ✓ Completed
+                </span>
+              )}
               <span className="text-6xl font-black text-white/25">
                 {round.order}
               </span>
@@ -57,7 +63,7 @@ export function HomeScreen() {
                 )}
               </div>
               <p className="mt-4 text-sm font-semibold uppercase tracking-wide text-white/70">
-                {remaining} of {total} left
+                {completed ? "All questions played" : `${remaining} of ${total} left`}
                 {round.type === "picture" && " · picture round"}
               </p>
             </button>

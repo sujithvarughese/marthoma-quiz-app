@@ -4,6 +4,7 @@ import {
   activeTeam,
   currentRound,
   getQuestion,
+  isNextRoundQuestionAudienceTurn,
   useDispatch,
   useGame,
 } from "@/lib/store";
@@ -25,6 +26,8 @@ export function RoundBoard() {
   const remaining = round.questionIds.filter((id) => !used.has(id)).length;
   const team = activeTeam(state);
   const isPicture = round.type === "picture";
+  const nextAudienceTurn =
+    !isPicture && isNextRoundQuestionAudienceTurn(session, round);
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -39,6 +42,16 @@ export function RoundBoard() {
           {isPicture ? (
             <p className="mt-2 inline-block rounded-full bg-fuchsia-500/20 px-4 py-1 text-lg font-bold text-fuchsia-200">
               Everyone plays — whiteboards
+            </p>
+          ) : nextAudienceTurn ? (
+            <p className="mt-2 text-xl font-semibold text-slate-300">
+              Up next:{" "}
+              <span className="font-black text-fuchsia-300">
+                🎉 Audience&apos;s turn
+              </span>{" "}
+              <span className="text-base font-medium text-slate-400">
+                (bonus — no points)
+              </span>
             </p>
           ) : (
             team && (
@@ -62,7 +75,7 @@ export function RoundBoard() {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {round.questionIds.map((id, i) => {
             const isDone = used.has(id);
             const q = getQuestion(state, id);

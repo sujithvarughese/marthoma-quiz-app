@@ -3,9 +3,10 @@ import type { Round } from "@/lib/types";
 /**
  * QUESTION DATA — edit this file to add your real questions.
  *
- * Each round has 10 questions, all worth the same 10 points. On the board they
- * appear as 10 numbered cards; a team picks a card to answer it. A wrong answer
- * can be passed to another team for 5 points. Once a card is chosen it locks.
+ * Each round has 8 questions (the Picture Round has 5), all worth the same 10
+ * points. On the board they appear as numbered cards; a team picks a card to
+ * answer it. A wrong answer can be passed to another team for 5 points. Once
+ * a card is chosen it locks.
  *
  * To add real content, just replace the `question` and `answer` strings below
  * (and `imageUrl` for the Picture Round). Keep `points: 10` and `used: false`.
@@ -94,22 +95,6 @@ export const rounds: Round[] = [
         funFact: "Twitter launched in 2006 and was renamed X in 2023 after Elon Musk acquired the company.",
         used: false,
       },
-      {
-        id: "ca-9",
-        points: 10,
-        question: "What name did Cardinal Robert Francis Prevost choose after being elected pope in 2025?",
-        answer: "Pope Leo XIV",
-        funFact: "Leo XIV became the 267th pope and the first pope from the Order of Saint Augustine.",
-        used: false,
-      },
-      {
-        id: "ca-10",
-        points: 10,
-        question: "Pope Leo XIV made history in 2025 as the first pope born in which country?",
-        answer: "The United States",
-        funFact: "Pope Leo XIV was born Robert Francis Prevost in Chicago, Illinois, in 1955.",
-        used: false,
-      },
     ],
   },
 
@@ -180,22 +165,6 @@ export const rounds: Round[] = [
         question: "In which sport would you perform a slam dunk?",
         answer: "Basketball",
         funFact: "Dunking was banned in U.S. college basketball from 1967 through the 1975–76 season.",
-        used: false,
-      },
-      {
-        id: "ssc-9",
-        points: 10,
-        question: "Which Indian festival is widely known as the Festival of Lights?",
-        answer: "Diwali",
-        funFact: "Diwali is celebrated by millions of people and is widely associated with the triumph of light over darkness.",
-        used: false,
-      },
-      {
-        id: "ssc-10",
-        points: 10,
-        question: "What is the name of the fictional school attended by Harry Potter?",
-        answer: "Hogwarts School of Witchcraft and Wizardry (Hogwarts)",
-        funFact: "Hogwarts students are divided into four houses: Gryffindor, Hufflepuff, Ravenclaw, and Slytherin.",
         used: false,
       },
     ],
@@ -270,22 +239,6 @@ export const rounds: Round[] = [
         funFact: "The Gospel of Matthew specifically records the payment to Judas as thirty pieces of silver.",
         used: false,
       },
-      {
-        id: "loj-9",
-        points: 10,
-        question: "In which garden did Jesus pray on the night before His crucifixion?",
-        answer: "The Garden of Gethsemane",
-        funFact: "The name Gethsemane comes from a term meaning 'oil press,' fitting its location near the Mount of Olives.",
-        used: false,
-      },
-      {
-        id: "loj-10",
-        points: 10,
-        question: "According to the Gospels, who was compelled to carry Jesus' cross on the way to the crucifixion?",
-        answer: "Simon of Cyrene",
-        funFact: "Simon was from Cyrene, an ancient North African city located in what is now Libya.",
-        used: false,
-      },
     ],
   },
 
@@ -339,51 +292,6 @@ export const rounds: Round[] = [
         answer: "Sundar Pichai",
         funFact: "Sundar Pichai was born in Chennai, India, and later became CEO of Google and its parent company, Alphabet.",
         imageUrl: "/questions/sundar-pichai.jpg",
-        used: false,
-      },
-      {
-        id: "pic-6",
-        points: 10,
-        question: "Who is this personality?",
-        answer: "Taylor Swift",
-        funFact: "Taylor Swift began her recording career as a country artist before becoming one of the world's most successful pop stars.",
-        imageUrl: "/questions/taylor-swift.jpg",
-        used: false,
-      },
-      {
-        id: "pic-7",
-        points: 10,
-        question: "Who is this personality?",
-        answer: "Sachin Tendulkar",
-        funFact: "Sachin Tendulkar is the only cricketer to have scored 100 international centuries.",
-        imageUrl: "/questions/sachin-tendulkar.jpg",
-        used: false,
-      },
-      {
-        id: "pic-8",
-        points: 10,
-        question: "Who is this personality?",
-        answer: "Mother Teresa",
-        funFact: "Mother Teresa founded the Missionaries of Charity in Kolkata in 1950 and received the Nobel Peace Prize in 1979.",
-        imageUrl: "/questions/mother-teresa.jpg",
-        used: false,
-      },
-      {
-        id: "pic-9",
-        points: 10,
-        question: "Who is this personality?",
-        answer: "Nelson Mandela",
-        funFact: "Nelson Mandela spent 27 years in prison before later becoming South Africa's first Black president.",
-        imageUrl: "/questions/nelson-mandela.jpg",
-        used: false,
-      },
-      {
-        id: "pic-10",
-        points: 10,
-        question: "Who is this personality?",
-        answer: "A. P. J. Abdul Kalam",
-        funFact: "A. P. J. Abdul Kalam was an aerospace scientist before serving as the 11th President of India.",
-        imageUrl: "/questions/apj-abdul-kalam.jpg",
         used: false,
       },
     ],
@@ -459,22 +367,6 @@ export const rounds: Round[] = [
         funFact: "Joshua and Caleb were the two spies who urged the Israelites to trust God and enter the land.",
         used: false,
       },
-      {
-        id: "epl-9",
-        points: 10,
-        question: "Who succeeded Moses as leader of the Israelites?",
-        answer: "Joshua",
-        funFact: "Before his death, Moses publicly commissioned Joshua to lead the Israelites.",
-        used: false,
-      },
-      {
-        id: "epl-10",
-        points: 10,
-        question: "The walls of which city fell after the Israelites marched around it for seven days?",
-        answer: "Jericho",
-        funFact: "On the seventh day at Jericho, the Israelites marched around the city seven times before the walls fell.",
-        used: false,
-      },
     ],
   },
 
@@ -545,22 +437,6 @@ export const rounds: Round[] = [
         question: "In which Indian state is the Mar Thoma Syrian Church headquartered?",
         answer: "Kerala",
         funFact: "The headquarters of the Mar Thoma Syrian Church is in Thiruvalla, Kerala.",
-        used: false,
-      },
-      {
-        id: "cw-9",
-        points: 10,
-        question: "What name is commonly given to the worldwide fellowship of churches historically connected to the Church of England?",
-        answer: "The Anglican Communion",
-        funFact: "The Anglican Communion is a worldwide family of churches with tens of millions of members across more than 165 countries.",
-        used: false,
-      },
-      {
-        id: "cw-10",
-        points: 10,
-        question: "What is the largest church building in Vatican City and one of the most famous Christian churches in the world?",
-        answer: "St. Peter's Basilica",
-        funFact: "St. Peter's Basilica took more than a century to build and includes work associated with Michelangelo and Bernini.",
         used: false,
       },
     ],
