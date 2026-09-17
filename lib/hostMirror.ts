@@ -34,6 +34,8 @@ export interface HostMirrorRapid {
   queue: string[];
   answers: Record<string, string>;
   finished: boolean;
+  /** True once the host has pressed Start on the "get ready" intro screen. */
+  started: boolean;
 }
 
 export interface HostMirror {
@@ -85,7 +87,8 @@ function isHostMirrorRapid(v: unknown): v is HostMirrorRapid {
     isStringArray(r.questionIds) &&
     isStringArray(r.queue) &&
     isStringRecord(r.answers) &&
-    typeof r.finished === "boolean"
+    typeof r.finished === "boolean" &&
+    typeof r.started === "boolean"
   );
 }
 

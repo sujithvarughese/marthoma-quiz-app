@@ -73,6 +73,8 @@ interface RapidPlayState {
   answers: Record<string, string>;
   /** True once the queue is empty (all answered) or the host ended the turn early. */
   finished: boolean;
+  /** False on deal — shows a "get ready" intro until the host presses Start. */
+  started: boolean;
 }
 
 export interface HostState {
@@ -185,6 +187,7 @@ export type Action =
   | { type: "CLOSE_QUESTION" }
   // rapid fire — play phase (every team plays before anyone is scored)
   | { type: "ENTER_RAPIDFIRE" }
+  | { type: "RAPID_BEGIN_TURN" } // host presses Start on the "get ready" intro
   | { type: "RAPID_RECORD_ANSWER"; text: string }
   | { type: "RAPID_SKIP" }
   | { type: "RAPID_FINISH" } // host ends the current team's turn early (e.g. time's up)
@@ -799,7 +802,18 @@ function reducer(state: HostState, action: Action): HostState {
           queue: [...dealt],
           answers: {},
           finished: false,
+          started: false,
         },
+        timer: IDLE_TIMER,
+      };
+    }
+
+    case "RAPID_BEGIN_TURN": {
+      const rf = state.rapid;
+      if (!rf || rf.started || rf.finished || !state.session) return state;
+      return {
+        ...state,
+        rapid: { ...rf, started: true },
         timer: startTimer(state.session.settings.rapidFireSeconds),
       };
     }
@@ -1200,8 +1214,10 @@ export function buildLive(state: HostState): LiveDisplay | null {
           teamName: team2?.name ?? "",
           total: rf.questionIds.length,
           answered: rf.questionIds.length - rf.queue.length,
-          question: rf.finished ? null : cur?.question ?? null,
+          question:
+            rf.finished || !rf.started ? null : cur?.question ?? null,
           finished: rf.finished,
+          started: rf.started,
         },
       };
     }

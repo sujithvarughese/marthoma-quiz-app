@@ -69,6 +69,9 @@ export interface LiveRapidFire {
   answered: number; // how many of `total` have been answered so far
   question: string | null;
   finished: boolean;
+  /** True once the host has started the timer; before that, the audience
+   * sees a "get ready" screen instead of the first question. */
+  started: boolean;
 }
 
 /** One row of the family-feud-style rapid-fire review board. */

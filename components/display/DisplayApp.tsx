@@ -794,6 +794,15 @@ function RapidFireScreen({ live }: { live: LiveDisplay }) {
               Results revealed after every team has played.
             </p>
           </div>
+        ) : !rf.started ? (
+          <div className="rounded-3xl border-4 border-yellow-400/80 bg-gradient-to-br from-slate-900 via-yellow-950/40 to-slate-950 p-16 shadow-[0_0_50px_rgba(250,204,21,0.25)]">
+            <p className="text-4xl font-bold uppercase tracking-widest text-yellow-300">
+              Get Ready!
+            </p>
+            <p className="mt-4 text-5xl font-black text-white">
+              {rf.teamName}, you&apos;re up
+            </p>
+          </div>
         ) : (
           <div className="animate-card-foldout relative flex w-full max-w-6xl flex-col items-center justify-center rounded-3xl border-4 border-yellow-400/80 bg-gradient-to-br from-slate-900 via-yellow-950/40 to-slate-950 p-12 shadow-[0_0_50px_rgba(250,204,21,0.25)]">
             <p className="max-w-5xl text-6xl font-black leading-tight text-white drop-shadow-lg">
@@ -803,7 +812,7 @@ function RapidFireScreen({ live }: { live: LiveDisplay }) {
         )}
       </div>
 
-      {live.timer?.endsAt != null && !rf.finished && (
+      {live.timer?.endsAt != null && !rf.finished && rf.started && (
         <div className="flex justify-center pb-4">
           <CountdownTimer
             endsAt={live.timer.endsAt}

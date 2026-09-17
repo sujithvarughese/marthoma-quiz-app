@@ -239,6 +239,41 @@ export function RapidFire() {
     );
   }
 
+  /* ---- Get ready: intro screen before the timer starts ---- */
+  if (!rapid.started) {
+    return (
+      <div className="mx-auto max-w-3xl text-center">
+        <p className="text-2xl font-bold uppercase tracking-widest text-slate-400">
+          Up next
+        </p>
+        <h2 className="mt-2 text-6xl font-black tracking-tight text-yellow-300">
+          ⚡ {teamName}
+        </h2>
+        <p className="mt-8 text-3xl font-bold text-slate-200">Get ready?</p>
+        <p className="mt-3 text-xl text-slate-400">
+          {rapid.questionIds.length} questions ·{" "}
+          {session.settings.rapidFireSeconds} seconds on the clock
+        </p>
+        <div className="mt-10 flex justify-center gap-4">
+          <Button
+            size="lg"
+            variant="success"
+            onClick={() => dispatch({ type: "RAPID_BEGIN_TURN" })}
+          >
+            ▶ Start
+          </Button>
+          <Button
+            size="lg"
+            variant="ghost"
+            onClick={() => dispatch({ type: "EXIT_RAPIDFIRE" })}
+          >
+            Home
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   /* ---- In play: host transcribes what the team said ---- */
   const currentQuestionId = rapid.queue[0] ?? null;
   const current = getQuestion(state, currentQuestionId);
