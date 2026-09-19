@@ -25,23 +25,34 @@ import type { HostLock } from "./hostLock";
  *   FIREBASE_PRIVATE_KEY   (paste the whole key; \n escapes are handled below)
  *
  * Optional:
- *   QUIZ_GAME_ID           which game document to use (default below)
+ *   QUIZ_GAME_ID           which game (session) document to use (default below)
  *
  * This module must never be imported from client components — it is only used by
  * the /api route handlers, which run on the server. Browser reads use the client
  * SDK in lib/firebaseClient.ts instead.
  *
  * Firestore layout:
+ *   games/{contentGameId}/rounds/{roundId}       → RoundDoc     (shared — one question bank)
+ *   games/{contentGameId}/questions/{questionId} → QuestionDoc  (shared — one question bank)
  *   games/{gameId}                          → GameDoc
  *   games/{gameId}/teams/{teamId}           → SessionTeam
- *   games/{gameId}/rounds/{roundId}         → RoundDoc
- *   games/{gameId}/questions/{questionId}   → QuestionDoc
  *   games/{gameId}/live/display             → LiveDisplay
  *   games/{gameId}/live/host                → HostMirror
  *   games/{gameId}/live/hostLock             → HostLock
+ *
+ * Content (rounds + questions) is deliberately split from the session: there's
+ * only one quiz's worth of questions, so it always lives under the fixed
+ * CONTENT_GAME_ID document regardless of which session is active. This lets a
+ * local dev session (QUIZ_GAME_ID=dev-test, say) run its own independent
+ * scores/progress/host-lock alongside the real event on Vercel, while both
+ * read the exact same question bank — editing content from either side
+ * updates it for both, since it's the same underlying document.
  */
 
 const COLLECTION = "games";
+
+/** Rounds/questions always live here, independent of the active session. */
+const CONTENT_GAME_ID = "mar-thoma-quiz-2026";
 
 export function getGameId(): string {
   return process.env.QUIZ_GAME_ID || "mar-thoma-quiz-2026";
@@ -95,8 +106,14 @@ function gameRef() {
   return db().collection(COLLECTION).doc(getGameId());
 }
 
+/** The shared question-bank document — see CONTENT_GAME_ID above. */
+function contentRef() {
+  return db().collection(COLLECTION).doc(CONTENT_GAME_ID);
+}
+
 /* ------------------------------------------------------------------ *
  * Content (rounds + questions) — written by the seed, read by everyone.
+ * Shared across every session/environment — see CONTENT_GAME_ID above.
  * ------------------------------------------------------------------ */
 
 /**
@@ -108,8 +125,8 @@ export async function saveContent(
   rounds: RoundDoc[],
   questions: QuestionDoc[],
 ): Promise<void> {
-  const roundsCol = gameRef().collection("rounds");
-  const questionsCol = gameRef().collection("questions");
+  const roundsCol = contentRef().collection("rounds");
+  const questionsCol = contentRef().collection("questions");
 
   const [existingRounds, existingQuestions] = await Promise.all([
     roundsCol.get(),
@@ -148,8 +165,8 @@ export async function saveContent(
 /** Read the full content bank. */
 export async function loadContent(): Promise<GameContent> {
   const [roundsSnap, questionsSnap] = await Promise.all([
-    gameRef().collection("rounds").get(),
-    gameRef().collection("questions").get(),
+    contentRef().collection("rounds").get(),
+    contentRef().collection("questions").get(),
   ]);
   const rounds = roundsSnap.docs
     .map((d) => d.data() as RoundDoc)

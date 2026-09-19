@@ -45,13 +45,25 @@ export function getDb(): Firestore {
   return getFirestore(getFirebaseApp());
 }
 
-/** Which game document to read. Must match QUIZ_GAME_ID on the server. */
+/** Which session document to read. Must match QUIZ_GAME_ID on the server. */
 export function getGameId(): string {
   return process.env.NEXT_PUBLIC_QUIZ_GAME_ID || "mar-thoma-quiz-2026";
 }
 
+/**
+ * Rounds/questions are shared across every session/environment — there's
+ * only one quiz's worth of questions — so they always live under this fixed
+ * document, independent of getGameId(). Must match CONTENT_GAME_ID in
+ * lib/firestore.ts.
+ */
+const CONTENT_GAME_ID = "mar-thoma-quiz-2026";
+
 function gameRef() {
   return doc(getDb(), "games", getGameId());
+}
+
+function contentRef() {
+  return doc(getDb(), "games", CONTENT_GAME_ID);
 }
 
 /* ------------------------------------------------------------------ *
@@ -61,8 +73,8 @@ function gameRef() {
 /** One-time read of the content bank (rounds + questions). */
 export async function loadContent(): Promise<GameContent> {
   const [roundsSnap, questionsSnap] = await Promise.all([
-    getDocs(collection(gameRef(), "rounds")),
-    getDocs(collection(gameRef(), "questions")),
+    getDocs(collection(contentRef(), "rounds")),
+    getDocs(collection(contentRef(), "questions")),
   ]);
   const rounds = roundsSnap.docs
     .map((d) => d.data() as RoundDoc)

@@ -51,7 +51,7 @@ export const rounds: Round[] = [
       {
         id: "ca-3",
         question:
-            "At the 2023 G20 Summit in New Delhi, which organization was admitted as a permanent member of the G20?",
+            "At the 2023 G20 Summit in New Delhi, which organization representing 55 member states became a permanent member of the G20?",
         answer: "The African Union",
         funFact:
             "The African Union became a permanent G20 member at the 2023 New Delhi Summit. South Africa hosted the G20 Summit in 2025, and the United States holds the G20 presidency in 2026.",
@@ -69,7 +69,7 @@ export const rounds: Round[] = [
       {
         id: "ca-5",
         question:
-            "In 2025, India became the fourth country to successfully dock two satellites in space. What was the mission called?",
+            "What was the name of India’s 2025 space mission that successfully demonstrated the docking of two satellites in orbit, making India the fourth country to achieve this capability?",
         answer: "SpaDeX",
         funFact:
             "SpaDeX made India the fourth nation to demonstrate space docking technology, after the United States, Russia and China.",
@@ -78,8 +78,8 @@ export const rounds: Round[] = [
       {
         id: "ca-6",
         question:
-            "According to the EIU Global Liveability Index 2026, which city was ranked the world's most liveable city?",
-        answer: "Copenhagen, Denmark",
+            "According to the EIU Global Liveability Index 2026, the world’s most liveable city is located in which country?",
+        answer: "Denmark",
         funFact:
             "Copenhagen retained the top position for the second consecutive year and received perfect scores in stability, education and infrastructure.",
         used: false,

@@ -78,25 +78,25 @@ export const rapidFirePool: RapidFireGroup[] = [
       {
         id: "b-2",
         question:
-            "Which U.S. state gained two additional seats in the House of Representatives following the 2020 Census?",
-        answer: "Texas",
+            " Who is the current U.S. Secretary of State?",
+        answer: "Marco Rubio",
         funFact:
-            "Texas was the only state to gain two U.S. House seats following the 2020 Census; five other states each gained one.",
+            "Marco Rubio became the 72nd U.S. Secretary of State when he took office on January 21, 2025.",
         used: false,
       },
       {
         id: "b-3",
         question:
-            "In the stock market, what does the abbreviation ETF stand for?",
-        answer: "Exchange-Traded Fund",
+            "What does USB stand for?",
+        answer: "Universal Serial Bus",
         funFact:
-            "An ETF is an investment fund whose shares can generally be bought and sold on a stock exchange throughout the trading day.",
+            "USB was designed to replace a bunch of different computer connectors with one universal standard—which is where the “Universal” in Universal Serial Bus comes from. The first USB standard was released in 1996.",
         used: false,
       },
       {
         id: "b-4",
         question:
-            "What name did Cardinal Robert Francis Prevost choose after being elected pope in 2025?",
+            "By what name is the current Pope known?",
         answer: "Pope Leo XIV",
         funFact:
             "Robert Francis Prevost chose the name Leo XIV and became the first pope born in the United States.",
@@ -121,7 +121,7 @@ export const rapidFirePool: RapidFireGroup[] = [
       {
         id: "c-1",
         question:
-            "Which city in New York is home to the Sinai Mar Thoma Center, headquarters of the Diocese of North America?",
+            "Which city in New York is home to the Sinai Mar Thoma Center?",
         answer: "Merrick, New York",
         funFact:
             "The Sinai Mar Thoma Center is located at 2320 Merrick Avenue in Merrick, New York, and serves as the diocesan office.",
@@ -170,10 +170,10 @@ export const rapidFirePool: RapidFireGroup[] = [
       {
         id: "d-1",
         question:
-            "In which river did Naaman (നയമാൻ) dip himself seven times and become healed of leprosy?",
-        answer: "The Jordan River",
+            "Who raised Esther as his own daughter?",
+        answer: "Mordecai",
         funFact:
-            "According to 2 Kings 5, the prophet Elisha instructed Naaman to wash seven times in the Jordan River, after which his skin was restored.",
+            "Mordecai was Esther’s older cousin, but after her parents died, he took her in and raised her as his own daughter. This is mentioned in Esther 2:7.",
         used: false,
       },
       {
@@ -246,10 +246,10 @@ export const rapidFirePool: RapidFireGroup[] = [
       {
         id: "e-4",
         question:
-            "What was Jesus' first recorded miracle in the Gospel of John?",
-        answer: "Turning water into wine at the wedding in Cana",
+            "Who was chosen to replace Judas Iscariot?",
+        answer: "Matthias",
         funFact:
-            "John 2 describes the miracle at Cana as the first of the signs through which Jesus revealed His glory.",
+            "Matthias was chosen by casting lots after the disciples prayed for guidance. He was selected to restore the group of apostles to twelve after Judas Iscariot’s death. This is recorded in Acts 1:23–26.",
         used: false,
       },
       {
