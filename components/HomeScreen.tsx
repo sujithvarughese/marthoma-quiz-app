@@ -4,7 +4,7 @@ import { useDispatch, useGame } from "@/lib/store";
 import { rapidFireQuestions } from "@/lib/content";
 
 // Accent colours cycle through the rounds for quick visual distinction.
-const ROUND_ACCENTS = [
+export const ROUND_ACCENTS = [
   "from-indigo-500 to-indigo-700",
   "from-emerald-500 to-emerald-700",
   "from-fuchsia-500 to-fuchsia-700",

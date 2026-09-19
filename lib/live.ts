@@ -22,7 +22,8 @@ export type DisplayScreen =
   | "answer"
   | "rapid_fire"
   | "rapid_review"
-  | "winner";
+  | "winner"
+  | "rules";
 
 export interface LiveTimer {
   running: boolean;
@@ -91,6 +92,22 @@ export interface LiveRapidReview {
   currentIndex: number;
 }
 
+/**
+ * One page of the how-to-play guide, mirrored to the projector so the
+ * audience follows along on the same page the host is narrating from (see
+ * lib/rulesContent.ts for the shared copy).
+ */
+export interface LiveRules {
+  icon: string;
+  eyebrow: string;
+  title: string;
+  body: string[];
+  page: number;
+  totalPages: number;
+  /** True on the welcome page — pairs with the top-level `rounds` field. */
+  showRounds: boolean;
+}
+
 export interface LiveDisplay {
   screen: DisplayScreen;
 
@@ -127,6 +144,8 @@ export interface LiveDisplay {
   rapidFire: LiveRapidFire | null;
   /** Rapid-fire review board for the "rapid_review" screen (null elsewhere). */
   rapidReview: LiveRapidReview | null;
+  /** How-to-play guide page for the "rules" screen (null elsewhere). */
+  rules: LiveRules | null;
 
   /** Epoch ms of the last publish, for staleness debugging. */
   updatedAt: number;
@@ -159,6 +178,7 @@ export function welcomeLive(name: string, subtitle: string): LiveDisplay {
     scores: null,
     rapidFire: null,
     rapidReview: null,
+    rules: null,
     updatedAt: 0,
   };
 }
@@ -173,7 +193,8 @@ export function isDisplayScreen(v: unknown): v is DisplayScreen {
     v === "answer" ||
     v === "rapid_fire" ||
     v === "rapid_review" ||
-    v === "winner"
+    v === "winner" ||
+    v === "rules"
   );
 }
 

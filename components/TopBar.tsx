@@ -81,6 +81,16 @@ export function TopBar() {
                   className="block w-full px-4 py-3 text-left text-lg font-semibold text-slate-200 hover:bg-white/10"
                   onClick={() => {
                     setMenuOpen(false);
+                    dispatch({ type: "OPEN_RULES" });
+                  }}
+                >
+                  How to play / rules
+                </button>
+                <button
+                  role="menuitem"
+                  className="block w-full px-4 py-3 text-left text-lg font-semibold text-slate-200 hover:bg-white/10"
+                  onClick={() => {
+                    setMenuOpen(false);
                     dispatch({ type: "GO_SETUP" });
                   }}
                 >

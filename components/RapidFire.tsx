@@ -86,10 +86,11 @@ export function RapidFire() {
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                      Q{i + 1} · {q?.question}
+                    <p className="text-xl font-bold leading-snug text-white sm:text-2xl">
+                      <span className="text-slate-400">Q{i + 1} · </span>
+                      {q?.question}
                     </p>
-                    <p className="mt-1 text-xl font-bold text-white">
+                    <p className="mt-2 text-xl font-bold text-white">
                       {answerGiven || (
                         <span className="italic text-slate-500">
                           No answer given
@@ -328,11 +329,12 @@ export function RapidFire() {
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                    Q{i + 1} · {q?.question}
+                  <p className="text-xl font-bold leading-snug text-white sm:text-2xl">
+                    <span className="text-slate-400">Q{i + 1} · </span>
+                    {q?.question}
                   </p>
                   {isAnswered && (
-                    <p className="mt-1 text-xl font-bold text-white">
+                    <p className="mt-2 text-xl font-bold text-white">
                       {answerGiven || (
                         <span className="italic text-slate-500">
                           No answer given
@@ -358,15 +360,10 @@ export function RapidFire() {
               {isActive && (
                 <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end">
                   <div className="flex-1">
-                    <label
-                      htmlFor="rapid-answer"
-                      className="text-xs font-bold uppercase tracking-widest text-slate-400"
-                    >
-                      What did they say?
-                    </label>
                     <input
                       id="rapid-answer"
                       type="text"
+                      aria-label="Team's answer"
                       autoFocus
                       value={answerText}
                       onChange={(e) => setAnswerText(e.target.value)}
@@ -374,7 +371,7 @@ export function RapidFire() {
                         if (e.key === "Enter") submitAnswer();
                       }}
                       placeholder="Type the team's answer…"
-                      className="mt-2 w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-xl font-semibold text-white placeholder:text-slate-500 focus:border-emerald-400/60 focus:outline-none"
+                      className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-xl font-semibold text-white placeholder:text-slate-500 focus:border-emerald-400/60 focus:outline-none"
                     />
                   </div>
                   <div className="flex gap-2">

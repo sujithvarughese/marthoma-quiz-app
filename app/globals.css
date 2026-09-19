@@ -535,3 +535,61 @@ body {
 .animate-wait-dot {
   animation: waitDotPulse 1.4s ease-in-out infinite;
 }
+
+/*
+ * Scoreboard / Final Results — a bar that fills in to its final width once
+ * on mount (score proportion), a champion name that pops in with a bounce,
+ * and lightweight CSS-only confetti for the winner reveal.
+ */
+@keyframes barFill {
+  0% {
+    width: 0%;
+  }
+  100% {
+    width: var(--bar-target, 0%);
+  }
+}
+
+@keyframes championPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6) translateY(20px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.08) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes confettiFall {
+  0% {
+    transform: translate3d(0, -10vh, 0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(var(--confetti-drift, 0px), 110vh, 0) rotate(var(--confetti-spin, 360deg));
+    opacity: 0.9;
+  }
+}
+
+.animate-bar-fill {
+  animation: barFill 1.1s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.animate-champion-pop {
+  animation: championPop 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.confetti-piece {
+  position: absolute;
+  top: -5vh;
+  animation: confettiFall linear infinite;
+  will-change: transform;
+}

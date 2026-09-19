@@ -75,7 +75,9 @@ export function RoundBoard() {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div
+          className={`grid gap-4 ${isPicture ? "grid-cols-5" : "grid-cols-2 sm:grid-cols-4"}`}
+        >
           {round.questionIds.map((id, i) => {
             const isDone = used.has(id);
             const q = getQuestion(state, id);

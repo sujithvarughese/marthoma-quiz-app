@@ -196,7 +196,8 @@ function DisplaySurface() {
   const showScoreboardDock =
     currentLive.screen !== "welcome" &&
     currentLive.screen !== "scoreboard" &&
-    currentLive.screen !== "winner";
+    currentLive.screen !== "winner" &&
+    currentLive.screen !== "rules";
 
   return (
     <div className="relative flex h-dvh flex-col bg-[#070b14] text-white selection:bg-amber-500 selection:text-slate-900 overflow-hidden">
@@ -275,6 +276,8 @@ function Screen({
       return <RapidReviewScreen live={live} />;
     case "winner":
       return <WinnerScreen live={live} />;
+    case "rules":
+      return <RulesScreen live={live} />;
     default:
       return <WelcomeScreen live={live} />;
   }
@@ -461,8 +464,14 @@ function ScoreboardScreen({ live }: { live: LiveDisplay }) {
   return (
     <div className="flex flex-1 flex-col justify-center gap-10 p-10">
       <header className="text-center">
-        <h1 className="text-7xl font-black tracking-tight text-amber-300 drop-shadow-[0_0_30px_rgba(251,191,36,0.4)]">
-          🏆 Current Standings
+        <div className="relative mx-auto mb-2 flex h-24 w-24 items-center justify-center">
+          <div className="animate-spotlight-rotate absolute h-24 w-24 rounded-full bg-radial from-amber-400/30 via-amber-500/5 to-transparent blur-xl" />
+          <span className="relative text-7xl drop-shadow-[0_0_30px_rgba(251,191,36,0.4)]">
+            🏆
+          </span>
+        </div>
+        <h1 className="animate-shimmer-text bg-gradient-to-r from-amber-200 via-white to-amber-200 bg-clip-text text-7xl font-black tracking-tight text-transparent">
+          Current Standings
         </h1>
         <p className="mt-2 text-2xl font-semibold text-slate-400">
           Live Scores & Leaderboard
@@ -472,6 +481,15 @@ function ScoreboardScreen({ live }: { live: LiveDisplay }) {
     </div>
   );
 }
+
+/** Medal for the top 3 rows — replaces the old plain leader star. */
+const MEDALS = ["👑", "🥈", "🥉"];
+
+const TIER_STYLES = [
+  "border-amber-400/80 bg-gradient-to-r from-amber-950/60 via-amber-900/40 to-slate-900/80 shadow-[0_0_40px_rgba(251,191,36,0.3)]",
+  "border-slate-300/50 bg-gradient-to-r from-slate-600/40 via-slate-800/40 to-slate-900/80 shadow-[0_0_25px_rgba(203,213,225,0.15)]",
+  "border-orange-700/60 bg-gradient-to-r from-orange-950/50 via-orange-900/30 to-slate-900/80 shadow-[0_0_25px_rgba(194,120,3,0.2)]",
+];
 
 function ScoreTable({
   scores,
@@ -484,34 +502,60 @@ function ScoreTable({
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
-      {scores.map((t) => {
-        const isLeader = t.score > 0 && t.score === maxScore;
+      {scores.map((t, i) => {
         const isActive = activeTeamId === t.id;
+        const tier = i < 3 && t.score > 0 ? i : null;
+        const barPct = maxScore > 0 ? (t.score / maxScore) * 100 : 0;
 
         return (
           <div
             key={t.id}
-            className={`flex items-center justify-between gap-8 rounded-3xl border-2 px-10 py-7 transition-all ${
+            style={{ animationDelay: `${i * 90}ms` }}
+            className={`animate-board-cascade relative flex items-center justify-between gap-8 overflow-hidden rounded-3xl border-2 px-10 py-7 transition-all ${
               isActive
                 ? "border-emerald-400/70 bg-gradient-to-r from-emerald-950/60 to-slate-900/80 shadow-[0_0_30px_rgba(16,185,129,0.25)]"
-                : "border-white/10 bg-slate-900/60 shadow-xl"
+                : tier !== null
+                  ? TIER_STYLES[tier]
+                  : "border-white/10 bg-slate-900/60 shadow-xl"
             }`}
           >
-            <div className="flex items-center gap-8">
-              <span className="flex items-center gap-3 text-4xl font-extrabold tracking-wide text-white drop-shadow">
+            {/* Continuous glow pulse for 1st place — its own layer, since an
+                element can only run one `animation` shorthand at a time and
+                this row already animates in via animate-board-cascade. */}
+            {tier === 0 && !isActive && (
+              <div className="animate-gold-pulse pointer-events-none absolute inset-0 rounded-3xl" />
+            )}
+
+            {/* Score proportion bar — fills in once on mount */}
+            <div
+              className="animate-bar-fill pointer-events-none absolute inset-y-0 left-0 bg-white/10"
+              style={
+                {
+                  "--bar-target": `${barPct}%`,
+                  animationDelay: `${i * 90 + 150}ms`,
+                } as React.CSSProperties
+              }
+            />
+
+            <div className="relative z-10 flex items-center gap-4">
+              {tier !== null && (
+                <span
+                  className="text-4xl drop-shadow-[0_0_10px_rgba(251,191,36,0.6)]"
+                  aria-label={
+                    tier === 0 ? "First place" : tier === 1 ? "Second place" : "Third place"
+                  }
+                  title={
+                    tier === 0 ? "First place" : tier === 1 ? "Second place" : "Third place"
+                  }
+                >
+                  {MEDALS[tier]}
+                </span>
+              )}
+              <span className="text-4xl font-extrabold tracking-wide text-white drop-shadow">
                 {t.name}
-                {isLeader && (
-                  <span
-                    className="text-3xl text-amber-300 drop-shadow-[0_0_10px_rgba(251,191,36,0.7)]"
-                    aria-label="First place"
-                    title="First place"
-                  >
-                    ⭐
-                  </span>
-                )}
               </span>
             </div>
-            <span className="font-mono text-6xl font-black tabular-nums text-white">
+            <span className="relative z-10 font-mono text-6xl font-black tabular-nums text-white">
               {t.score}
             </span>
           </div>
@@ -599,8 +643,14 @@ function BoardScreen({
         <ActiveBanner live={live} />
       </header>
 
-      {/* Grid of Jeopardy Numbered Cards */}
-      <div className="my-auto grid flex-1 grid-cols-2 content-center gap-8 py-8 sm:grid-cols-4">
+      {/* Grid of Jeopardy Numbered Cards — the Picture Round always has
+          exactly 5 questions, so it gets one unbroken row instead of
+          wrapping 4+1 like the 8-question standard rounds. */}
+      <div
+        className={`my-auto grid flex-1 content-center gap-8 py-8 ${
+          tiles.length === 5 ? "grid-cols-5" : "grid-cols-2 sm:grid-cols-4"
+        }`}
+      >
         {tiles.map((tile, i) => (
           <div
             key={tile.questionId}
@@ -944,27 +994,176 @@ function RapidReviewScreen({ live }: { live: LiveDisplay }) {
   );
 }
 
+/** Lightweight CSS-only confetti — randomized once per mount, never re-rolled. */
+const CONFETTI_COLORS = ["#fbbf24", "#34d399", "#38bdf8", "#f472b6", "#a78bfa", "#fb923c"];
+
+interface ConfettiPiece {
+  id: number;
+  left: number;
+  color: string;
+  width: number;
+  height: number;
+  duration: number;
+  delay: number;
+  drift: number;
+  spin: number;
+  rounded: boolean;
+}
+
+// Randomized (impure), so this must only ever be called from an effect —
+// never inline during render — to keep the component itself pure.
+function rollConfettiPieces(count: number): ConfettiPiece[] {
+  return Array.from({ length: count }, (_, i) => ({
+    id: i,
+    left: Math.random() * 100,
+    color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+    width: 6 + Math.random() * 8,
+    height: 10 + Math.random() * 10,
+    duration: 4 + Math.random() * 3.5,
+    delay: Math.random() * 4,
+    drift: (Math.random() - 0.5) * 220,
+    spin: 360 + Math.random() * 360,
+    rounded: Math.random() > 0.5,
+  }));
+}
+
+function Confetti({ count = 32 }: { count?: number }) {
+  // A lazy useState initializer is the sanctioned way to run one-time,
+  // impure setup (random rolls) exactly once at mount without touching it
+  // on every render.
+  const [pieces] = useState<ConfettiPiece[]>(() => rollConfettiPieces(count));
+
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      {pieces.map((p) => (
+        <span
+          key={p.id}
+          className={`confetti-piece ${p.rounded ? "rounded-full" : "rounded-sm"}`}
+          style={
+            {
+              left: `${p.left}%`,
+              width: `${p.width}px`,
+              height: `${p.height}px`,
+              backgroundColor: p.color,
+              animationDuration: `${p.duration}s`,
+              animationDelay: `${p.delay}s`,
+              "--confetti-drift": `${p.drift}px`,
+              "--confetti-spin": `${p.spin}deg`,
+            } as React.CSSProperties
+          }
+        />
+      ))}
+    </div>
+  );
+}
+
 /** Champions / Final Results Screen */
 function WinnerScreen({ live }: { live: LiveDisplay }) {
   const scores = [...(live.scores ?? [])].sort((a, b) => b.score - a.score);
   const champ = scores[0];
 
   return (
-    <div className="flex flex-1 flex-col justify-center gap-10 p-10">
-      <header className="text-center">
-        <span className="text-7xl drop-shadow-[0_0_40px_rgba(251,191,36,0.8)]">
-          🏆
-        </span>
-        <h1 className="mt-3 text-8xl font-black tracking-tight text-amber-300 drop-shadow-[0_0_40px_rgba(251,191,36,0.5)]">
-          {champ ? champ.name : "Final Standings"}
-        </h1>
+    <div className="relative flex flex-1 flex-col justify-center gap-10 overflow-hidden p-10">
+      {champ && <Confetti />}
+
+      <header className="relative z-10 text-center">
+        <div className="relative mx-auto mb-3 flex h-32 w-32 items-center justify-center">
+          <div className="animate-spotlight-rotate absolute h-32 w-32 rounded-full bg-radial from-amber-400/40 via-amber-500/10 to-transparent blur-2xl" />
+          <div className="animate-gold-pulse absolute h-24 w-24 rounded-full" />
+          <span className="animate-champion-pop relative text-8xl drop-shadow-[0_0_40px_rgba(251,191,36,0.8)]">
+            🏆
+          </span>
+        </div>
+
+        <div className="animate-champion-pop" style={{ animationDelay: "0.15s" }}>
+          <h1 className="animate-shimmer-text bg-gradient-to-r from-amber-200 via-white to-amber-200 bg-clip-text text-8xl font-black tracking-tight text-transparent">
+            {champ ? champ.name : "Final Standings"}
+          </h1>
+        </div>
+
         {champ && (
-          <p className="mt-2 text-4xl font-extrabold text-white">
-            GRAND CHAMPIONS!
+          <p
+            className="animate-champion-pop mt-2 text-4xl font-extrabold text-white"
+            style={{ animationDelay: "0.3s" }}
+          >
+            🎉 GRAND CHAMPIONS! 🎉
           </p>
         )}
       </header>
-      <ScoreTable scores={scores} />
+
+      <div className="relative z-10">
+        <ScoreTable scores={scores} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * How-to-play guide — mirrors the host's RulesGuide overlay onto the
+ * projector one page at a time, so the audience follows along on the same
+ * page the host is narrating from (see LiveRules / buildLive).
+ */
+function RulesScreen({ live }: { live: LiveDisplay }) {
+  const rules = live.rules;
+  if (!rules) return <WelcomeScreen live={live} />;
+  const rounds = live.rounds ?? [];
+
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-10 p-10 text-center">
+      <div className="flex flex-col items-center gap-4">
+        <div className="inline-flex items-center gap-2 rounded-full border border-indigo-400/40 bg-indigo-500/15 px-5 py-1.5 text-lg font-black uppercase tracking-widest text-indigo-300">
+          {rules.eyebrow}
+        </div>
+        <h1 className="flex items-center gap-4 text-7xl font-black tracking-tight text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.8)] sm:text-8xl">
+          <span>{rules.icon}</span>
+          <span>{rules.title}</span>
+        </h1>
+      </div>
+
+      <ul className="flex max-w-4xl flex-col gap-6 text-left">
+        {rules.body.map((line, i) => (
+          <li
+            key={i}
+            className="flex items-start gap-4 text-3xl font-medium leading-snug text-slate-200 sm:text-4xl"
+          >
+            <span className="mt-2.5 h-3 w-3 flex-shrink-0 rounded-full bg-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.8)]" />
+            <span>{line}</span>
+          </li>
+        ))}
+      </ul>
+
+      {rules.showRounds && rounds.length > 0 && (
+        <div className="flex max-w-4xl flex-wrap justify-center gap-3">
+          {rounds.map((r, i) => {
+            const style = CATEGORY_GRADIENTS[i % CATEGORY_GRADIENTS.length];
+            return (
+              <span
+                key={r.id}
+                className={`inline-flex items-center gap-2 rounded-full border bg-gradient-to-r ${style.bg} ${style.border} px-5 py-2 text-lg font-bold text-white shadow-lg`}
+              >
+                <span className="text-white/70">{r.order}</span>
+                <span>{r.name}</span>
+              </span>
+            );
+          })}
+          <span className="inline-flex items-center gap-2 rounded-full border-2 border-amber-400/70 bg-amber-400/15 px-5 py-2 text-lg font-bold text-amber-300 shadow-lg">
+            <span>⚡</span>
+            <span>Rapid Fire</span>
+          </span>
+        </div>
+      )}
+
+      {/* Page progress — read-only on the projector, the host drives paging. */}
+      <div className="flex items-center gap-2" aria-hidden="true">
+        {Array.from({ length: rules.totalPages }).map((_, i) => (
+          <span
+            key={i}
+            className={`h-3 rounded-full transition-all ${
+              i === rules.page ? "w-9 bg-amber-400" : "w-3 bg-white/20"
+            }`}
+          />
+        ))}
+      </div>
     </div>
   );
 }

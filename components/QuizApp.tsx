@@ -12,6 +12,7 @@ import { PictureView } from "./PictureView";
 import { RapidFire } from "./RapidFire";
 import { ResultsScreen } from "./ResultsScreen";
 import { Scoreboard } from "./Scoreboard";
+import { RulesGuide } from "./RulesGuide";
 
 /**
  * Host control shell. The whole event runs on this one screen — we switch the
@@ -70,6 +71,7 @@ export function HostShell({ readOnly = false }: { readOnly?: boolean }) {
       </main>
 
       <Scoreboard />
+      <RulesGuide />
     </div>
   );
 }

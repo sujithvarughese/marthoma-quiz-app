@@ -34,6 +34,7 @@ import {
 import type { HostMirror } from "./hostMirror";
 import type { HostLock } from "./hostLock";
 import { loadContent, subscribeHostLock, subscribeHostMirror } from "./firebaseClient";
+import { buildRulesPages } from "./rulesContent";
 
 /* ------------------------------------------------------------------ *
  * Host-side state: read-only content + durable session + transient view.
@@ -101,6 +102,13 @@ export interface HostState {
   /** The single team currently mid-turn (not yet persisted — see note above). */
   rapid: RapidPlayState | null;
   timer: HostTimer;
+
+  /** How-to-play guide overlay — auto-opened on a fresh START_GAME, and
+   * reopenable any time from the gear menu. Mirrored to the projector (see
+   * buildLive) so the audience follows the same page, but not to the
+   * read-only speaker mirror. */
+  rulesOpen: boolean;
+  rulesPage: number;
 }
 
 /* ------------------------------------------------------------------ *
@@ -236,7 +244,13 @@ export type Action =
   | { type: "RAPID_REVIEW_NEXT_TEAM" }
   | { type: "RAPID_REVIEW_DONE" }
   // scores admin
-  | { type: "ADJUST_SCORE"; teamId: string; amount: number };
+  | { type: "ADJUST_SCORE"; teamId: string; amount: number }
+  // how-to-play guide
+  | { type: "OPEN_RULES" }
+  | { type: "CLOSE_RULES" }
+  | { type: "RULES_NEXT" }
+  | { type: "RULES_BACK" }
+  | { type: "RULES_GOTO"; page: number };
 
 /* ------------------------------------------------------------------ *
  * Helpers
@@ -342,6 +356,8 @@ function makeInitialState(): HostState {
     timer: IDLE_TIMER,
     awarded: false,
     lastAward: null,
+    rulesOpen: false,
+    rulesPage: 0,
   };
 }
 
@@ -495,6 +511,10 @@ function reducer(state: HostState, action: Action): HostState {
         },
         view: "home",
         ...CLEARED,
+        // Greet a freshly-started game with the how-to-play guide. Resuming
+        // an already-active game (GO_HOME) never touches this.
+        rulesOpen: true,
+        rulesPage: 0,
       };
     }
 
@@ -698,12 +718,37 @@ function reducer(state: HostState, action: Action): HostState {
       if (!state.session || !state.activeQuestionId) return state;
       // Only meaningful once a decision has been made (points awarded, or
       // paused between steal turns) — otherwise there's nothing to undo.
-      const pendingStealTurn = state.stealing && state.timer.endsAt === null;
+      const pendingStealTurn =
+        state.stealing && state.timer.endsAt === null && !state.awarded;
       if (!state.awarded && !pendingStealTurn) return state;
       let teams = state.session.teams;
       for (const a of state.lastAward ?? []) {
         teams = award(teams, a.teamId, -a.amount);
       }
+
+      // Once steal mode has been opened, step back exactly one turn instead
+      // of jumping all the way back to the original team: undoing an
+      // awarded/missed steal attempt returns to that same team's (or the
+      // audience's) "Next Team" screen, ready to start over. The only time
+      // undo should fall all the way back to the original team is the very
+      // first steal turn (stealIndex 0, never yet started) — there is no
+      // earlier steal turn to step back to, so that undoes the original
+      // "missed — open to steal" decision instead.
+      const isFirstStealTurn = pendingStealTurn && state.stealIndex === 0;
+      if (state.stealOrder.length > 0 && !isFirstStealTurn) {
+        return {
+          ...state,
+          session: { ...state.session, teams },
+          revealed: false,
+          stealing: true,
+          stealIndex: state.awarded ? state.stealIndex : state.stealIndex - 1,
+          pictureCorrect: [],
+          awarded: false,
+          lastAward: null,
+          timer: IDLE_TIMER,
+        };
+      }
+
       return {
         ...state,
         session: { ...state.session, teams },
@@ -1012,6 +1057,26 @@ function reducer(state: HostState, action: Action): HostState {
       };
     }
 
+    /* ---- how-to-play guide ---- */
+    case "OPEN_RULES":
+      return { ...state, rulesOpen: true, rulesPage: 0 };
+
+    case "CLOSE_RULES":
+      return { ...state, rulesOpen: false };
+
+    case "RULES_NEXT": {
+      const total = buildRulesPages(state.session?.settings ?? DEFAULT_SETTINGS).length;
+      return { ...state, rulesPage: Math.min(total - 1, state.rulesPage + 1) };
+    }
+
+    case "RULES_BACK":
+      return { ...state, rulesPage: Math.max(0, state.rulesPage - 1) };
+
+    case "RULES_GOTO": {
+      const total = buildRulesPages(state.session?.settings ?? DEFAULT_SETTINGS).length;
+      return { ...state, rulesPage: Math.max(0, Math.min(total - 1, action.page)) };
+    }
+
     default:
       return state;
   }
@@ -1067,8 +1132,33 @@ export function buildLive(state: HostState): LiveDisplay | null {
     scores: scoresOf(session),
     rapidFire: null,
     rapidReview: null,
+    rules: null,
     updatedAt: Date.now(),
   };
+
+  // The how-to-play guide is an overlay independent of `view` (it can be
+  // open on top of "home", or reopened mid-game from the gear menu) — so it
+  // takes over the projector regardless of whatever screen is underneath,
+  // the same way it takes over the host's own screen.
+  if (state.rulesOpen) {
+    const pages = buildRulesPages(session.settings);
+    const page = pages[state.rulesPage] ?? pages[0];
+    return {
+      ...base,
+      screen: "rules",
+      message: null,
+      timer: IDLE_TIMER,
+      rules: {
+        icon: page.icon,
+        eyebrow: page.eyebrow,
+        title: page.title,
+        body: page.body,
+        page: state.rulesPage,
+        totalPages: pages.length,
+        showRounds: page.showRounds ?? false,
+      },
+    };
+  }
 
   const round = currentRound(state);
   const team = activeTeam(state);
