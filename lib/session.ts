@@ -65,7 +65,7 @@ export interface RapidFireReview {
 export const DEFAULT_SETTINGS: GameSettings = {
   correctPoints: 10,
   stealPoints: 5,
-  picturePoints: 10,
+  picturePoints: 5,
   rapidFirePoints: 5,
 
   normalAnswerSeconds: 60,

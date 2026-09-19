@@ -24,18 +24,27 @@ export function buildRulesPages(settings: GameSettings): RulesPage[] {
       eyebrow: "Welcome",
       title: "How Tonight Works",
       body: [
-        "We'll play through several rounds of trivia — general knowledge, Bible, current affairs, and more.",
+        "We'll play through seven rounds of trivia — six themed rounds plus a Rapid Fire finale — covering general knowledge, Bible, current affairs, and more.",
+        "Team seating is assigned by lottery, so find your spot before we start.",
         "Answer correctly to score points, and keep an eye on the live scoreboard as the night goes on.",
-        "Here's a quick rundown of how each part works before we begin.",
       ],
       showRounds: true,
+    },
+    {
+      icon: "📋",
+      eyebrow: "Before We Begin",
+      title: "Ground Rules",
+      body: [
+        "Each team should designate one spokesperson — only that team's final answer will be accepted, so talk it over before you answer.",
+        "Electronic devices and reference materials are not allowed at the table.",
+      ],
     },
     {
       icon: "🎯",
       eyebrow: "Standard Rounds",
       title: "Picking a Question",
       body: [
-        "Teams take turns picking a numbered card from the board.",
+        "Teams take turns picking their own question from the options shown on the board.",
         `The team on the clock has ${settings.normalAnswerSeconds} seconds to answer for +${settings.correctPoints} points.`,
         "Once every team has had one turn, any questions left on that board are opened up to the whole audience — just for fun, no points on the line.",
       ],
@@ -56,7 +65,7 @@ export function buildRulesPages(settings: GameSettings): RulesPage[] {
       title: "Everyone Plays at Once",
       body: [
         "No turns and no stealing here — every team plays every question together.",
-        "Look at the photo on the big screen and write down your answer.",
+        "Look at the photo on the big screen and write your answer on the whiteboard provided.",
         `Every team that gets it right earns +${settings.picturePoints} points.`,
       ],
     },
@@ -65,8 +74,8 @@ export function buildRulesPages(settings: GameSettings): RulesPage[] {
       eyebrow: "Special Round",
       title: "Rapid Fire",
       body: [
-        "Each team picks a lettered group of questions when it's their turn.",
-        `One continuous ${settings.rapidFireSeconds}-second countdown — answer as many as you can before time runs out!`,
+        `Each team gets ${settings.rapidFireQuestionCount} questions in one continuous ${settings.rapidFireSeconds}-second countdown.`,
+        "You can pass on a question and come back to it later if time remains.",
         `+${settings.rapidFirePoints} points for every correct answer, graded by the host once every team has had a turn.`,
       ],
     },
@@ -75,8 +84,8 @@ export function buildRulesPages(settings: GameSettings): RulesPage[] {
       eyebrow: "Scoring",
       title: "Let's Play!",
       body: [
-        "Points add up across every round — the scoreboard is always just a tap away.",
-        "The team with the most points when we're done is crowned the Grand Champion.",
+        "Points add up across every round — the scoreboard is always just a tap away, and there's no penalty for a wrong answer.",
+        "If the top teams are tied at the end, we'll settle it with sudden-death tiebreaker questions until a winner emerges.",
         "Good luck, and most of all — have fun! 🎉",
       ],
     },
