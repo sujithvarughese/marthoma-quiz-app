@@ -225,10 +225,10 @@ export const rounds: Round[] = [
       {
         id: "pic-4",
         question: "Who is this personality?",
-        answer: "Mike Pompeo",
+        answer: "Ted Cruz",
         funFact:
-            "Mike Pompeo served as U.S. Secretary of State from 2018 to 2021 during Donald Trump's first administration.",
-        imageUrl: "/questions/mike-pompeo.jpg",
+            "Ted Cruz has represented Texas in the U.S. Senate since 2013, and was a Republican Presidential candidate in 2016.",
+        imageUrl: "/questions/ted-cruz.jpg",
         used: false,
       },
       {
@@ -280,10 +280,10 @@ export const rounds: Round[] = [
       {
         id: "loj-4",
         question:
-            "To which tribe of Israel did the prophetess Anna belong? (ഇസ്രായേലിലെ ഏത് ഗോത്രത്തിലാണ് അന്നാ പ്രവാചകി ഉൾപ്പെട്ടിരുന്നത്?)",
-        answer: "The tribe of Asher",
+            "Who first identified Jesus as the 'Lamb of God?' (യേശുവിനെ ആദ്യമായി “ദൈവത്തിന്റെ കുഞ്ഞാട്” എന്ന് വിശേഷിപ്പിച്ചത് ആര്?)",
+        answer: "John the Baptist / യോഹന്നാൻ സ്നാപകൻ",
         funFact:
-            "Luke 2:36 identifies Anna as the daughter of Phanuel, of the tribe of Asher.",
+            "John the Baptist called Jesus the “Lamb of God” twice in the Gospel of John—first when he saw Jesus coming toward him (John 1:29), and again the next day (John 1:36).",
         used: false,
       },
       {
@@ -316,8 +316,8 @@ export const rounds: Round[] = [
       {
         id: "loj-8",
         question:
-            "According to Mark, what Aramaic word did Jesus say while healing a man who was deaf and could hardly speak? (മർക്കോസിന്റെ സുവിശേഷപ്രകാരം, ബധിരനും സംസാരിക്കാൻ പ്രയാസമുള്ളവനുമായ ഒരു മനുഷ്യനെ സൗഖ്യമാക്കുമ്പോൾ യേശു പറഞ്ഞ അരാമ്യപദം എന്തായിരുന്നു?)",
-        answer: "Ephphatha (എഫ്ഫഥാ)",
+            "When Jesus healed a man who was deaf and could hardly speak, what word did He say, or what did the word mean? (ചെവി കേൾക്കാത്തവനും സംസാരിക്കാൻ പ്രയാസമുള്ളവനുമായ ഒരാളെ യേശു സൗഖ്യമാക്കിയപ്പോൾ, യേശു പറഞ്ഞ വാക്ക് എന്തായിരുന്നു, അല്ലെങ്കിൽ ആ വാക്കിന്റെ അർത്ഥം എന്താണ്?)",
+        answer: "Ephphatha (എഫ്ഫഥാ) or Be Opened (തുറക്കപ്പെടുക)",
         funFact:
             "Ephphatha means 'Be opened.' Mark 7:34 preserves the Aramaic word spoken by Jesus during the healing.",
         used: false,
@@ -345,8 +345,8 @@ export const rounds: Round[] = [
       {
         id: "epl-2",
         question:
-            "Among the seventy elders selected by Moses, which two remained in the Israelite camp and prophesied there instead of going to the Tent of Meeting? (മോശെ തിരഞ്ഞെടുത്ത എഴുപത് മൂപ്പന്മാരിൽ, സമാഗമനക്കുടാരത്തിലേക്കു പോകാതെ ഇസ്രായേൽ പാളയത്തിൽത്തന്നെ പ്രവചിച്ച രണ്ടുപേർ ആരായിരുന്നു?)",
-        answer: "Eldad and Medad (എൽദാദും മേദാദും)",
+            "In which land was Moses buried? (മോശെയെ അടക്കം ചെയ്തത് ഏത് ദേശത്തായിരുന്നു?)",
+        answer: "Moab / മോവാബ്",
         funFact:
             "Numbers 11:26–29 says Eldad and Medad remained in the camp yet received the Spirit and began to prophesy.",
         used: false,
@@ -390,11 +390,11 @@ export const rounds: Round[] = [
       {
         id: "epl-7",
         question:
-            "How many cities were the Israelites commanded to give the Levites, and how many of these were to be cities of refuge? (ലേവ്യർക്കു നൽകാൻ യിസ്രായേല്യരോട് കല്പിച്ച പട്ടണങ്ങൾ എത്രയായിരുന്നു? അവയിൽ എത്ര എണ്ണം സങ്കേതപട്ടണങ്ങളായിരുന്നു?)",
+            "How many cities were the Israelites commanded to give to the Levites? (ലേവ്യർക്കു നൽകാൻ യിസ്രായേല്യരോട് കല്പിച്ച പട്ടണങ്ങൾ എത്രയായിരുന്നു? അവയിൽ എത്ര എണ്ണം സങ്കേതപട്ടണങ്ങളായിരുന്നു?)",
         answer:
-            "48 cities in total, including 6 cities of refuge (ആകെ 48 പട്ടണങ്ങൾ; അവയിൽ ആറു സങ്കേതപട്ടണങ്ങൾ)",
+            "48 cities",
         funFact:
-            "Numbers 35:6–7 specifies six cities of refuge among the forty-eight towns assigned to the Levites.",
+            "The Levites were given 48 cities, and 6 of them were designated as cities of refuge—places where someone who accidentally caused a death could flee for protection until receiving a fair hearing. This is described in Numbers 35:1–7.",
         used: false,
       },
       {
