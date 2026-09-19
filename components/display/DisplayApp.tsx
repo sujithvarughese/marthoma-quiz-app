@@ -199,7 +199,7 @@ function DisplaySurface() {
     currentLive.screen !== "winner";
 
   return (
-    <div className="relative flex min-h-dvh flex-col bg-[#070b14] text-white selection:bg-amber-500 selection:text-slate-900 overflow-hidden">
+    <div className="relative flex h-dvh flex-col bg-[#070b14] text-white selection:bg-amber-500 selection:text-slate-900 overflow-hidden">
       {/* Dynamic Projector Background Atmosphere */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-[20%] -left-[10%] h-[70vw] w-[70vw] rounded-full bg-radial from-indigo-600/15 via-blue-900/5 to-transparent blur-3xl" />
@@ -219,8 +219,8 @@ function DisplaySurface() {
           </div>
         </Centered>
       ) : (
-        <div className="relative z-10 flex flex-1 flex-col justify-between overflow-hidden">
-          <main className="flex flex-1 flex-col overflow-hidden">
+        <div className="relative z-10 flex min-h-0 flex-1 flex-col justify-between overflow-hidden">
+          <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
             <Screen
               live={currentLive}
               fromQuestion={
@@ -319,19 +319,58 @@ function ActiveBanner({ live }: { live: LiveDisplay }) {
   return null;
 }
 
-/** Welcome / Standby Screen */
+/**
+ * welcomeLive() always formats its message as "<subtitle> — <name>" (see
+ * lib/live.ts) — split it back into a small eyebrow line and the big
+ * headline rather than rendering the whole thing as one giant sentence.
+ */
+function splitWelcomeMessage(message: string | null): [string, string] {
+  const fallback: [string, string] = [
+    "Mar Thoma Church Quiz",
+    "Wisdom Across Generations",
+  ];
+  if (!message) return fallback;
+  const parts = message.split(" — ");
+  return parts.length === 2 ? [parts[0], parts[1]] : [fallback[0], message];
+}
+
+/**
+ * Welcome / Standby Screen — the projector sits here for minutes at a time
+ * before the host starts the game, so the crest gets slow ambient motion
+ * (a rotating light sweep, a soft breathing glow, a gentle float) and the
+ * headline shimmers, to keep the audience's eye occupied while they wait.
+ */
 function WelcomeScreen({ live }: { live: LiveDisplay }) {
+  const [eyebrow, headline] = splitWelcomeMessage(live.message);
+
   return (
     <Centered>
-      <div className="flex flex-col items-center gap-6">
-        <div className="inline-flex items-center gap-3 rounded-full border border-amber-400/40 bg-amber-400/10 px-8 py-3 text-2xl font-bold uppercase tracking-widest text-amber-300 shadow-[0_0_30px_rgba(251,191,36,0.2)]">
-          ✝️ Mar Thoma Church Quiz
+      <div className="flex flex-col items-center gap-8">
+        <div className="relative flex items-center justify-center py-4">
+          <div className="animate-spotlight-rotate absolute h-72 w-72 rounded-full bg-radial from-amber-400/30 via-amber-500/5 to-transparent blur-2xl sm:h-96 sm:w-96" />
+          <div className="animate-gold-pulse absolute h-48 w-48 rounded-full sm:h-60 sm:w-60" />
+          <img
+            src="/marthomalogo.png"
+            alt="Mar Thoma Church crest — Lighted to Lighten"
+            className="animate-logo-float relative h-40 w-auto mix-blend-screen drop-shadow-[0_10px_40px_rgba(251,191,36,0.35)] sm:h-52"
+          />
         </div>
-        <h1 className="text-7xl font-black tracking-tight text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.8)] sm:text-8xl">
-          {live.message ?? "Wisdom Across Generations"}
+
+        <div className="inline-flex items-center gap-3 rounded-full border border-amber-400/40 bg-amber-400/10 px-8 py-3 text-2xl font-bold uppercase tracking-widest text-amber-300 shadow-[0_0_30px_rgba(251,191,36,0.2)]">
+          ✝️ {eyebrow}
+        </div>
+
+        <h1 className="animate-shimmer-text bg-gradient-to-r from-amber-200 via-white to-amber-200 bg-clip-text text-7xl font-black tracking-tight text-transparent sm:text-8xl">
+          {headline}
         </h1>
-        <p className="mt-4 text-3xl font-semibold text-slate-300">
+
+        <p className="mt-4 flex items-center gap-3 text-3xl font-semibold text-slate-300">
           Please wait for the host to begin the game
+          <span className="inline-flex gap-1.5" aria-hidden="true">
+            <span className="animate-wait-dot h-3 w-3 rounded-full bg-amber-300 [animation-delay:0ms]" />
+            <span className="animate-wait-dot h-3 w-3 rounded-full bg-amber-300 [animation-delay:200ms]" />
+            <span className="animate-wait-dot h-3 w-3 rounded-full bg-amber-300 [animation-delay:400ms]" />
+          </span>
         </p>
       </div>
     </Centered>
@@ -445,7 +484,7 @@ function ScoreTable({
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
-      {scores.map((t, i) => {
+      {scores.map((t) => {
         const isLeader = t.score > 0 && t.score === maxScore;
         const isActive = activeTeamId === t.id;
 
@@ -459,9 +498,6 @@ function ScoreTable({
             }`}
           >
             <div className="flex items-center gap-8">
-              <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-800 text-3xl font-black text-slate-200 shadow-lg">
-                {i + 1}
-              </span>
               <span className="flex items-center gap-3 text-4xl font-extrabold tracking-wide text-white drop-shadow">
                 {t.name}
                 {isLeader && (

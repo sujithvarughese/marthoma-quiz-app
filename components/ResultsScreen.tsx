@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { activeTeam, rankedTeams, useDispatch, useGame } from "@/lib/store";
 import { Button } from "./ui";
 
@@ -7,6 +8,9 @@ import { Button } from "./ui";
  * Full-screen standings for the host, used by both the "scoreboard" view
  * (mid-game) and the "winner" view (final results, with a champion callout),
  * matching the layout and styling of the scoreboard in the display route.
+ * On the mid-game scoreboard, the host can click a score to correct it —
+ * routed through the same ADJUST_SCORE action as every other point award, so
+ * a manual correction still pops the usual +/- delta on the scoreboards.
  */
 export function ResultsScreen({ winner = false }: { winner?: boolean }) {
   const state = useGame();
@@ -15,6 +19,26 @@ export function ResultsScreen({ winner = false }: { winner?: boolean }) {
   const ranked = rankedTeams(session?.teams ?? []);
   const currentActiveTeam = activeTeam(state);
   const top = ranked[0];
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+
+  const startEdit = (teamId: string, score: number) => {
+    setEditingId(teamId);
+    setDraft(String(score));
+  };
+
+  const commitEdit = (teamId: string, currentScore: number) => {
+    const parsed = Number.parseInt(draft, 10);
+    if (Number.isFinite(parsed) && parsed !== currentScore) {
+      dispatch({
+        type: "ADJUST_SCORE",
+        teamId,
+        amount: parsed - currentScore,
+      });
+    }
+    setEditingId(null);
+  };
 
   return (
     <div className="flex flex-1 flex-col justify-center gap-10 p-6 sm:p-10">
@@ -41,6 +65,9 @@ export function ResultsScreen({ winner = false }: { winner?: boolean }) {
             <p className="mt-2 text-xl font-semibold text-slate-400 sm:text-2xl">
               Live Scores & Leaderboard
             </p>
+            <p className="mt-1 text-base font-medium text-slate-500">
+              Click a score to correct it
+            </p>
           </>
         )}
       </header>
@@ -62,26 +89,52 @@ export function ResultsScreen({ winner = false }: { winner?: boolean }) {
               }`}
             >
               <div className="flex items-center gap-6 sm:gap-8">
-                <span
-                  className={`flex h-14 w-14 items-center justify-center rounded-2xl text-2xl font-black shadow-lg sm:h-16 sm:w-16 sm:text-3xl ${
-                    isLeader
-                      ? "bg-amber-400 text-slate-950 ring-4 ring-amber-300/50"
-                      : "bg-slate-800 text-slate-200"
-                  }`}
-                >
-                  {isLeader ? "👑" : i + 1}
-                </span>
+                {isLeader && (
+                  <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400 text-2xl font-black text-slate-950 shadow-lg ring-4 ring-amber-300/50 sm:h-16 sm:w-16 sm:text-3xl">
+                    👑
+                  </span>
+                )}
                 <span className="text-3xl font-extrabold tracking-wide text-white drop-shadow sm:text-4xl">
                   {t.name}
                 </span>
               </div>
-              <span
-                className={`font-mono text-5xl font-black tabular-nums sm:text-6xl ${
-                  isLeader ? "text-amber-300" : "text-white"
-                }`}
-              >
-                {t.score}
-              </span>
+              {!winner && editingId === t.id ? (
+                <input
+                  type="number"
+                  autoFocus
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onFocus={(e) => e.currentTarget.select()}
+                  onBlur={() => commitEdit(t.id, t.score)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.currentTarget.blur();
+                    if (e.key === "Escape") setEditingId(null);
+                  }}
+                  className="w-32 rounded-xl border-2 border-amber-400/70 bg-slate-950/80 px-3 py-1 text-right font-mono text-4xl font-black tabular-nums text-white focus:outline-none sm:w-40 sm:text-5xl"
+                />
+              ) : (
+                <span
+                  role={winner ? undefined : "button"}
+                  tabIndex={winner ? undefined : 0}
+                  onClick={winner ? undefined : () => startEdit(t.id, t.score)}
+                  onKeyDown={
+                    winner
+                      ? undefined
+                      : (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            startEdit(t.id, t.score);
+                          }
+                        }
+                  }
+                  title={winner ? undefined : "Click to edit score"}
+                  className={`rounded-xl px-2 font-mono text-5xl font-black tabular-nums sm:text-6xl ${
+                    isLeader ? "text-amber-300" : "text-white"
+                  } ${winner ? "" : "cursor-pointer transition-colors hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70"}`}
+                >
+                  {t.score}
+                </span>
+              )}
             </div>
           );
         })}

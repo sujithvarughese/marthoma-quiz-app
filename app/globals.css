@@ -483,3 +483,55 @@ body {
 .text-glow-cyan {
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8), 0 0 25px rgba(56, 189, 248, 0.6);
 }
+
+/*
+ * Welcome / standby screen — the projector sits on this for minutes at a
+ * time before the host starts the game, so it gets slow, ambient motion
+ * (a breathing crest, a rotating light sweep, a shimmering headline) to
+ * keep the audience's eye occupied without ever feeling busy or distracting.
+ */
+@keyframes logoFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-16px);
+  }
+}
+
+@keyframes shimmerText {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes waitDotPulse {
+  0%, 80%, 100% {
+    opacity: 0.25;
+    transform: scale(0.7);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-logo-float {
+  animation: logoFloat 6s ease-in-out infinite;
+}
+
+.animate-spotlight-rotate {
+  animation: spotlightRotate 14s linear infinite;
+}
+
+.animate-shimmer-text {
+  background-size: 200% 100%;
+  animation: shimmerText 5s linear infinite;
+}
+
+.animate-wait-dot {
+  animation: waitDotPulse 1.4s ease-in-out infinite;
+}
