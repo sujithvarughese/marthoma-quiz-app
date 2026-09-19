@@ -57,6 +57,39 @@ export function rapidFireQuestions(content: GameContent): QuestionDoc[] {
   );
 }
 
+/** One selectable card on the rapid-fire group board (e.g. "Group A"). */
+export interface RapidFireGroup {
+  /** The group's category label as stored on its questions (e.g. "Group A"). */
+  key: string;
+  /** Short label for the board card, e.g. "A". */
+  label: string;
+  /** This group's question ids, in the order authored in /data/rapidFire.ts. */
+  questionIds: string[];
+}
+
+/**
+ * Convenience: the rapid-fire pool split back into the groups it was seeded
+ * from (grouped by `category`, ordered by each group's first question).
+ */
+export function rapidFireGroups(content: GameContent): RapidFireGroup[] {
+  const groups = new Map<string, { order: number; items: QuestionDoc[] }>();
+  for (const q of rapidFireQuestions(content)) {
+    const g = groups.get(q.category) ?? { order: q.order, items: [] };
+    g.items.push(q);
+    g.order = Math.min(g.order, q.order);
+    groups.set(q.category, g);
+  }
+  return [...groups.entries()]
+    .sort((a, b) => a[1].order - b[1].order)
+    .map(([category, g]) => ({
+      key: category,
+      label: category.replace(/^Group\s+/i, "") || category,
+      questionIds: g.items
+        .sort((a, b) => a.order - b.order)
+        .map((q) => q.id),
+    }));
+}
+
 /** Convenience: a round's questions in board order, resolved from ids. */
 export function roundQuestions(
   content: GameContent,

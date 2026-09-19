@@ -39,26 +39,11 @@ const DEFAULT_TEAMS = [
   "Young Family Fellowship",
 ];
 
-// Friendly category labels for rapid-fire questions, inferred from their id
-// prefix (rf-bib-1 → "Bible"), so the host has something to announce.
-const RAPID_CATEGORIES: Record<string, string> = {
-  bib: "Bible",
-  gk: "General Knowledge",
-  ind: "India",
-  ca: "Current Affairs",
-  mtc: "Mar Thoma Church",
-};
-
 function slugify(name: string): string {
   return name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-}
-
-function rapidCategory(id: string): string {
-  const key = id.split("-")[1] ?? "";
-  return RAPID_CATEGORIES[key] ?? "Rapid Fire";
 }
 
 /** Transform the /data seed into flat rounds + questions docs. */
@@ -91,19 +76,23 @@ function buildContent(): { rounds: RoundDoc[]; questions: QuestionDoc[] } {
     });
   }
 
-  rapidFireSeed.forEach((q, i) => {
-    questions.push({
-      id: q.id,
-      roundId: null,
-      category: rapidCategory(q.id),
-      type: "rapid_fire",
-      order: i + 1,
-      question: q.question,
-      answer: q.answer,
-      imageUrl: null,
-      funFact: q.funFact ?? "",
-    });
-  });
+  let order = 0;
+  for (const group of rapidFireSeed) {
+    for (const q of group.questions) {
+      order += 1;
+      questions.push({
+        id: q.id,
+        roundId: null,
+        category: group.name,
+        type: "rapid_fire",
+        order,
+        question: q.question,
+        answer: q.answer,
+        imageUrl: null,
+        funFact: q.funFact ?? "",
+      });
+    }
+  }
 
   return { rounds, questions };
 }

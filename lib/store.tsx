@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import {
-  rapidFireQuestions,
+  rapidFireGroups,
   type GameContent,
   type QuestionDoc,
   type RoundDoc,
@@ -224,6 +224,7 @@ export type Action =
   | { type: "CLOSE_QUESTION" }
   // rapid fire — play phase (every team plays before anyone is scored)
   | { type: "ENTER_RAPIDFIRE" }
+  | { type: "RAPID_SELECT_GROUP"; groupKey: string } // host picks a lettered group for the up-next team
   | { type: "RAPID_BEGIN_TURN" } // host presses Start on the "get ready" intro
   | { type: "RAPID_RECORD_ANSWER"; text: string }
   | { type: "RAPID_SKIP" }
@@ -259,18 +260,6 @@ function startTimer(seconds: number): HostTimer {
     endsAt: Date.now() + seconds * 1000,
     durationSeconds: seconds,
   };
-}
-
-function pickRandomUnused(pool: QuestionDoc[], usedIds: string[], n: number) {
-  const used = new Set(usedIds);
-  const available = pool.filter((q) => !used.has(q.id));
-  const dealt: string[] = [];
-  while (dealt.length < n && available.length) {
-    const i = Math.floor(Math.random() * available.length);
-    dealt.push(available[i].id);
-    available.splice(i, 1);
-  }
-  return dealt;
 }
 
 /**
@@ -801,43 +790,47 @@ function reducer(state: HostState, action: Action): HostState {
               .map((t) => t.id)
           : archivedQueue;
 
-      const nextTeamId = queue[0] ?? null;
-      const dealt = nextTeamId
-        ? pickRandomUnused(
-            rapidFireQuestions(state.content),
-            state.session.usedQuestionIds,
-            state.session.settings.rapidFireQuestionCount,
-          )
-        : [];
+      // No auto-deal: land on the group board so the host can pick a lettered
+      // group of questions for whichever team is up next (queue[0]).
+      return {
+        ...state,
+        ...CLEARED,
+        session: {
+          ...state.session,
+          rapidQueue: queue,
+          rapidCompleted: completed,
+        },
+        view: "rapidfire",
+        rapid: null,
+      };
+    }
 
-      if (!nextTeamId || dealt.length === 0) {
-        return {
-          ...state,
-          ...CLEARED,
-          session: {
-            ...state.session,
-            rapidQueue: queue,
-            rapidCompleted: completed,
-          },
-          view: "rapidfire",
-          rapid: null,
-        };
+    case "RAPID_SELECT_GROUP": {
+      const { session, content } = state;
+      if (!session || !content) return state;
+      const nextTeamId = session.rapidQueue?.[0];
+      if (!nextTeamId) return state;
+
+      const group = rapidFireGroups(content).find(
+        (g) => g.key === action.groupKey,
+      );
+      const used = new Set(session.usedQuestionIds);
+      if (!group || group.questionIds.some((id) => used.has(id))) {
+        return state;
       }
 
       return {
         ...state,
         ...CLEARED,
         session: {
-          ...state.session,
-          usedQuestionIds: [...state.session.usedQuestionIds, ...dealt],
-          rapidQueue: queue,
-          rapidCompleted: completed,
+          ...session,
+          usedQuestionIds: [...session.usedQuestionIds, ...group.questionIds],
         },
         view: "rapidfire",
         rapid: {
           teamId: nextTeamId,
-          questionIds: dealt,
-          queue: [...dealt],
+          questionIds: group.questionIds,
+          queue: [...group.questionIds],
           answers: {},
           finished: false,
           started: false,

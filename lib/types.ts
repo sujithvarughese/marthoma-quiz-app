@@ -4,8 +4,6 @@
 export interface Question {
   /** Unique within its round (or within the rapid-fire pool). */
   id: string;
-  /** Board tile value used to lay out the jeopardy grid (e.g. 10 / 20 / 30). */
-  points: number;
   question: string;
   answer: string;
   funFact?: string;
@@ -13,6 +11,17 @@ export interface Question {
   imageUrl?: string;
   /** Flipped to true once revealed during play so it isn't picked again. */
   used: boolean;
+}
+
+/**
+ * A labeled bundle of rapid-fire questions (e.g. "Group A"). The rapid-fire
+ * pool is organized into groups purely so the seed script can label each
+ * question's category — during play they're all just one shuffled pool.
+ */
+export interface RapidFireGroup {
+  id: string;
+  name: string;
+  questions: Question[];
 }
 
 export interface Round {

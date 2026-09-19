@@ -5,6 +5,7 @@ import { getQuestion, useDispatch, useGame } from "@/lib/store";
 import { rapidFireQuestions } from "@/lib/content";
 import { Button } from "./ui";
 import { CountdownTimer } from "./CountdownTimer";
+import { RapidFireBoard } from "./RapidFireBoard";
 
 export function RapidFire() {
   const state = useGame();
@@ -165,24 +166,28 @@ export function RapidFire() {
     );
   }
 
-  /* ---- Nothing to play: every team has gone, or the pool ran dry ---- */
+  /* ---- No team currently mid-turn: either pick a group for the team up
+   * next, or every team has gone and it's time to review. ---- */
   if (!rapid) {
     const remaining = rapidQueue?.length ?? 0;
     const allDone = remaining === 0;
+
+    if (!allDone) {
+      return <RapidFireBoard />;
+    }
+
     return (
       <div className="mx-auto max-w-4xl text-center">
         <h2 className="text-5xl font-black tracking-tight text-yellow-300">
           ⚡ Rapid Fire
         </h2>
         <p className="mt-3 text-xl text-slate-300">
-          Each team gets {session.settings.rapidFireQuestionCount} questions in
+          Each group is {session.settings.rapidFireQuestionCount} questions in
           one {session.settings.rapidFireSeconds}-second countdown · +
           {rapidPoints} each, graded afterward.
         </p>
         <p className="mt-8 text-2xl font-bold text-slate-200">
-          {allDone
-            ? "Every team has had their turn."
-            : "The rapid-fire pool is empty — no questions left to deal for the remaining teams."}
+          Every team has had their turn.
         </p>
         <p className="mt-1 text-lg text-slate-400">
           {poolRemaining} question{poolRemaining === 1 ? "" : "s"} left in pool

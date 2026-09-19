@@ -8,6 +8,7 @@ import {
   FieldValue,
   getFirestore,
   type Firestore,
+  type WriteBatch,
 } from "firebase-admin/firestore";
 import type { GameContent, QuestionDoc, RoundDoc } from "./content";
 import type { GameDoc, SessionState, SessionTeam } from "./session";
@@ -98,17 +99,50 @@ function gameRef() {
  * Content (rounds + questions) — written by the seed, read by everyone.
  * ------------------------------------------------------------------ */
 
-/** Overwrite the whole content bank (rounds + questions) in one batch. */
+/**
+ * Overwrite the whole content bank (rounds + questions).
+ * Erases any existing questions and rounds from Firestore, then writes the
+ * current set in batches (respecting Firestore's 500-op limit).
+ */
 export async function saveContent(
   rounds: RoundDoc[],
   questions: QuestionDoc[],
 ): Promise<void> {
-  const batch = db().batch();
   const roundsCol = gameRef().collection("rounds");
   const questionsCol = gameRef().collection("questions");
-  for (const r of rounds) batch.set(roundsCol.doc(r.id), clean(r));
-  for (const q of questions) batch.set(questionsCol.doc(q.id), clean(q));
-  await batch.commit();
+
+  const [existingRounds, existingQuestions] = await Promise.all([
+    roundsCol.get(),
+    questionsCol.get(),
+  ]);
+
+  const ops: ((batch: WriteBatch) => void)[] = [];
+
+  // Erase existing questions and rounds so stale docs are removed
+  for (const d of existingQuestions.docs) {
+    ops.push((batch) => batch.delete(d.ref));
+  }
+  for (const d of existingRounds.docs) {
+    ops.push((batch) => batch.delete(d.ref));
+  }
+
+  // Seed current rounds and questions
+  for (const r of rounds) {
+    ops.push((batch) => batch.set(roundsCol.doc(r.id), clean(r)));
+  }
+  for (const q of questions) {
+    ops.push((batch) => batch.set(questionsCol.doc(q.id), clean(q)));
+  }
+
+  // Commit in chunks of up to 400 operations to stay well within Firestore's 500-op limit
+  const BATCH_SIZE = 400;
+  for (let i = 0; i < ops.length; i += BATCH_SIZE) {
+    const batch = db().batch();
+    for (const op of ops.slice(i, i + BATCH_SIZE)) {
+      op(batch);
+    }
+    await batch.commit();
+  }
 }
 
 /** Read the full content bank. */
