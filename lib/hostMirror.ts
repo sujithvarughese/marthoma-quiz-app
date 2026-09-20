@@ -32,7 +32,8 @@ export interface HostMirrorTimer {
 export interface HostMirrorRapid {
   teamId: string;
   questionIds: string[];
-  queue: string[];
+  /** Index into questionIds of whichever one is currently highlighted. */
+  currentIndex: number;
   answers: Record<string, string>;
   finished: boolean;
   /** True once the host has pressed Start on the "get ready" intro screen. */
@@ -88,7 +89,7 @@ function isHostMirrorRapid(v: unknown): v is HostMirrorRapid {
   return (
     typeof r.teamId === "string" &&
     isStringArray(r.questionIds) &&
-    isStringArray(r.queue) &&
+    typeof r.currentIndex === "number" &&
     isStringRecord(r.answers) &&
     typeof r.finished === "boolean" &&
     typeof r.started === "boolean"

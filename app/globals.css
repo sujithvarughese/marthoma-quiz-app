@@ -195,6 +195,17 @@ body {
   cursor: default;
 }
 
+/* Rapid Fire on the speaker mirror: no transcript box to type into (the
+   host owns that), so hide it entirely and just show the question text
+   clearly instead of a control the speaker can't use. */
+.host-readonly .rapid-answer-box {
+  display: none;
+}
+
+.host-readonly .rapid-question-row {
+  cursor: default;
+}
+
 .animate-card-foldout {
   animation: cardFoldOut 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   transform-origin: center center;
@@ -343,6 +354,23 @@ body {
   animation:
     goldGlowPulse 2.5s infinite ease-in-out,
     focusGlowPulse 2.2s infinite ease-in-out;
+}
+
+/* Whichever team's turn it is right now, on the persistent scoreboard bar
+ * (host, speaker, and the display's bottom dock) — emerald to match the
+ * "active team" ring color already used there, just animated so it reads
+ * as a live cue rather than a static badge. */
+@keyframes teamGlowPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.7), 0 0 20px 2px rgba(52, 211, 153, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(52, 211, 153, 1), 0 0 36px 6px rgba(52, 211, 153, 0.7);
+  }
+}
+
+.animate-team-glow {
+  animation: teamGlowPulse 1.8s infinite ease-in-out;
 }
 
 /*

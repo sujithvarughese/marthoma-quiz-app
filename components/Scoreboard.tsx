@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { activeTeam, useGame } from "@/lib/store";
+import { currentTurnTeam, useGame } from "@/lib/store";
 
 /** Playful per-team color identity, matching the display route scoreboard dock. */
 const TEAM_ACCENTS = [
@@ -28,7 +28,7 @@ interface ScoreDelta {
 export function Scoreboard() {
   const state = useGame();
   const { session } = state;
-  const currentActiveTeam = activeTeam(state);
+  const currentActiveTeam = currentTurnTeam(state);
   const teams = session?.teams
     ? [...session.teams].sort((a, b) => a.order - b.order)
     : [];
@@ -102,7 +102,7 @@ export function Scoreboard() {
               key={team.id}
               className={`relative flex flex-shrink-0 items-center gap-3 rounded-full border px-5 py-3 transition-all duration-300 ${accent.chip} ${
                 isActive
-                  ? "ring-2 ring-emerald-400/80 shadow-[0_0_24px_rgba(16,185,129,0.4)]"
+                  ? "animate-team-glow ring-2 ring-emerald-400/80"
                   : "shadow-md"
               }`}
             >

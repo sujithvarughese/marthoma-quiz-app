@@ -10,6 +10,7 @@ import {
   type LiveScore,
 } from "@/lib/live";
 import { CountdownTimer } from "@/components/CountdownTimer";
+import { useGameShowAudio } from "@/lib/useGameShowAudio";
 
 /** Category color accents matching the host themes */
 const CATEGORY_GRADIENTS = [
@@ -193,6 +194,8 @@ function DisplaySurface() {
     live ??
     welcomeLive("Wisdom Across Generations", "Mar Thoma Church of South Florida");
 
+  const { unlocked, muted, enable, toggleMute } = useGameShowAudio(currentLive);
+
   const showScoreboardDock =
     currentLive.screen !== "welcome" &&
     currentLive.screen !== "scoreboard" &&
@@ -239,6 +242,28 @@ function DisplaySurface() {
             />
           )}
         </div>
+      )}
+
+      {/* Audio needs a user gesture before it's allowed to play — whoever
+          sets up the projector taps this once and it disappears. */}
+      {connected && !unlocked && (
+        <button
+          onClick={enable}
+          className="animate-pulse fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full border border-amber-400/60 bg-slate-950/90 px-5 py-3 text-lg font-bold text-amber-200 shadow-[0_0_25px_rgba(251,191,36,0.35)] backdrop-blur-md"
+        >
+          🔊 Tap to enable sound
+        </button>
+      )}
+
+      {connected && unlocked && (
+        <button
+          onClick={toggleMute}
+          aria-label={muted ? "Unmute" : "Mute"}
+          title={muted ? "Unmute" : "Mute"}
+          className="fixed bottom-4 right-4 z-50 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-slate-950/70 text-lg text-slate-300 opacity-40 backdrop-blur-md transition-opacity hover:opacity-100"
+        >
+          {muted ? "🔇" : "🔈"}
+        </button>
       )}
     </div>
   );
@@ -423,11 +448,12 @@ function RoundsScreen({ live }: { live: LiveDisplay }) {
           matter how many rounds there are. A trailing lone card (Rapid
           Fire, always last) is nudged into the middle column to center it
           instead of sticking to the grid's first column. */}
-      <div className="my-auto grid min-h-0 flex-1 auto-rows-fr grid-cols-1 gap-4 py-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="my-auto grid min-h-0 flex-1 auto-rows-fr grid-cols-1 gap-3 py-4 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-6">
         {rounds.map((r, i) => {
           const isRapidFire = r.type === "rapid_fire";
           const style = CATEGORY_GRADIENTS[i % CATEGORY_GRADIENTS.length];
           const isSelected = live.roundId === r.id;
+          const isCompleted = r.remainingQuestions === 0;
           const isCenteredTrailer =
             trailingCount === 1 && i === rounds.length - 1;
           // "Up next" glow — suppressed once the card is actively selected
@@ -441,7 +467,7 @@ function RoundsScreen({ live }: { live: LiveDisplay }) {
           return (
             <div
               key={r.id}
-              className={`group relative flex h-full min-h-0 flex-col justify-between overflow-hidden rounded-3xl border-2 p-6 text-left shadow-2xl backdrop-blur-xl transition-all duration-500 select-none ${
+              className={`group relative flex h-full min-h-0 flex-col justify-between overflow-hidden rounded-3xl border-2 p-3 text-left shadow-2xl backdrop-blur-xl transition-all duration-500 select-none sm:p-5 lg:p-8 ${
                 isCenteredTrailer ? "lg:col-start-2" : ""
               } ${
                 isRapidFire
@@ -451,49 +477,62 @@ function RoundsScreen({ live }: { live: LiveDisplay }) {
                 isSelected
                   ? "animate-category-chosen scale-105 ring-4 ring-amber-400 shadow-[0_0_60px_rgba(251,191,36,0.6)] z-20"
                   : ""
-              }`}
+              } ${isCompleted ? "opacity-60" : ""}`}
             >
               {/* Watermark — a bolt for Rapid Fire instead of a round number,
                   since it isn't picked off a numbered board like the others. */}
               {isRapidFire ? (
                 <span
-                  className="absolute -right-2 -top-2 text-8xl text-black/10 select-none"
+                  className="absolute -right-1 -top-1 text-5xl text-black/10 select-none sm:-right-2 sm:-top-2 sm:text-7xl lg:-right-4 lg:-top-4 lg:text-9xl"
                   aria-hidden="true"
                 >
                   ⚡
                 </span>
               ) : (
                 <span
-                  className={`absolute top-4 right-6 font-mono text-7xl font-black select-none ${style.num}`}
+                  className={`absolute top-2 right-3 font-mono text-4xl font-black select-none sm:top-3 sm:right-4 sm:text-6xl lg:top-5 lg:right-7 lg:text-8xl ${style.num}`}
                 >
                   0{r.order}
                 </span>
               )}
 
-              <div className="relative z-10 flex min-h-0 flex-col gap-2 overflow-hidden">
-                <span
-                  className={`inline-block w-fit rounded-full border px-4 py-1 text-xs font-black uppercase tracking-wider ${
-                    isRapidFire
-                      ? "border-slate-950/25 bg-slate-950/15 text-slate-950"
-                      : style.tag
-                  }`}
-                >
-                  {isRapidFire
-                    ? "⚡ Special Round"
-                    : r.type === "picture"
-                      ? "🖼️ Picture Clues"
-                      : "📖 Standard Round"}
-                </span>
+              <div className="relative z-10 flex min-h-0 flex-col gap-1 overflow-hidden sm:gap-2 lg:gap-3">
+                {/* Badges hidden below sm: with 7 cards in a single column, a
+                    row is only tall enough for the title itself — the round
+                    number watermark and footer status already carry enough
+                    context at that size. */}
+                <div className="hidden flex-wrap items-center gap-2 sm:flex">
+                  <span
+                    className={`inline-block w-fit rounded-full border px-4 py-1 text-xs font-black uppercase tracking-wider lg:px-5 lg:py-1.5 lg:text-sm ${
+                      isRapidFire
+                        ? "border-slate-950/25 bg-slate-950/15 text-slate-950"
+                        : style.tag
+                    }`}
+                  >
+                    {isRapidFire
+                      ? "⚡ Special Round"
+                      : r.type === "picture"
+                        ? "🖼️ Picture Clues"
+                        : "📖 Standard Round"}
+                  </span>
+                  {/* Completed badge — mirrors the host's round cards. */}
+                  {isCompleted && (
+                    <span className="inline-flex w-fit items-center gap-1 rounded-full bg-emerald-500 px-3 py-1 text-xs font-black uppercase tracking-wide text-white shadow-lg lg:px-4 lg:py-1.5 lg:text-sm">
+                      ✓ Completed
+                    </span>
+                  )}
+                </div>
                 <h2
-                  className={`line-clamp-2 text-3xl font-black leading-tight drop-shadow-md ${
+                  className={`line-clamp-1 text-lg font-black leading-tight drop-shadow-md sm:line-clamp-2 sm:text-2xl lg:text-4xl ${
                     isRapidFire ? "text-slate-950" : "text-white"
                   }`}
                 >
                   {r.name}
                 </h2>
+                {/* Hidden below sm: for the same reason as the badges above. */}
                 {r.description && (
                   <p
-                    className={`line-clamp-2 text-base font-medium leading-snug ${
+                    className={`hidden text-sm font-medium leading-snug sm:line-clamp-2 lg:line-clamp-3 lg:text-xl ${
                       isRapidFire ? "text-slate-900/80" : "text-slate-200/90"
                     }`}
                   >
@@ -503,19 +542,21 @@ function RoundsScreen({ live }: { live: LiveDisplay }) {
               </div>
 
               <div
-                className={`relative z-10 flex shrink-0 items-center justify-between border-t pt-3 ${
+                className={`relative z-10 flex shrink-0 items-center justify-between border-t pt-2 sm:pt-3 lg:pt-4 ${
                   isRapidFire ? "border-slate-950/20" : "border-white/10"
                 }`}
               >
                 <span
-                  className={`text-base font-bold ${
+                  className={`text-xs font-bold sm:text-sm lg:text-lg ${
                     isRapidFire ? "text-slate-900" : "text-slate-300"
                   }`}
                 >
-                  {r.remainingQuestions} of {r.totalQuestions} questions left
+                  {isCompleted
+                    ? "All Questions Played"
+                    : `${r.remainingQuestions} of ${r.totalQuestions} questions left`}
                 </span>
                 {isSelected && (
-                  <span className="animate-pulse font-black text-amber-300">
+                  <span className="animate-pulse text-xs font-black text-amber-300 sm:text-sm lg:text-lg">
                     Selected!
                   </span>
                 )}
@@ -1342,7 +1383,7 @@ function BottomScoreboardDock({
               key={team.id}
               className={`relative flex flex-shrink-0 items-center gap-3 rounded-full border px-5 py-3 transition-all duration-300 ${accent.chip} ${
                 isActive
-                  ? "ring-2 ring-emerald-400/80 shadow-[0_0_24px_rgba(16,185,129,0.4)]"
+                  ? "animate-team-glow ring-2 ring-emerald-400/80"
                   : "shadow-md"
               }`}
             >

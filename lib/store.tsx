@@ -71,12 +71,14 @@ interface RapidPlayState {
   teamId: string;
   /** The fixed set of questions dealt to this team, in dealt order. */
   questionIds: string[];
-  /** Questions still owed an answer attempt this turn; front = current.
-   * Skipping moves the front id to the back so it comes up again later. */
-  queue: string[];
-  /** Host-typed transcript of what the team said, keyed by question id. */
+  /** Index into questionIds of whichever one the host is currently reading
+   * aloud — shown highlighted on host/speaker (and mirrored to the
+   * display). All 5 answer boxes stay editable regardless of this. */
+  currentIndex: number;
+  /** Host-typed transcript of what the team said, keyed by question id —
+   * editable for any question at any time, not just the current one. */
   answers: Record<string, string>;
-  /** True once the queue is empty (all answered) or the host ended the turn early. */
+  /** True once the host ends the turn. */
   finished: boolean;
   /** False on deal — shows a "get ready" intro until the host presses Start. */
   started: boolean;
@@ -138,6 +140,27 @@ export function activeTeam(state: HostState): SessionTeam | null {
   if (!session) return null;
   const id = activeTeamIdOf(session);
   return session.teams.find((t) => t.id === id) ?? null;
+}
+
+/**
+ * Whichever team should glow as "up now" on the persistent scoreboard bar —
+ * the standard/picture round's active team, or during Rapid Fire, whoever's
+ * mid-turn (or up next, before a group's been dealt), or whoever's being
+ * graded during the review pass.
+ */
+export function currentTurnTeam(state: HostState): SessionTeam | null {
+  const { session } = state;
+  if (!session) return null;
+  if (state.view === "rapidfire") {
+    if (session.rapidReview) {
+      const id =
+        session.rapidReview.teamIds[session.rapidReview.currentIndex] ?? null;
+      return id ? (session.teams.find((t) => t.id === id) ?? null) : null;
+    }
+    const id = state.rapid?.teamId ?? session.rapidQueue?.[0] ?? null;
+    return id ? (session.teams.find((t) => t.id === id) ?? null) : null;
+  }
+  return activeTeam(state);
 }
 
 export function isUsed(state: HostState, id: string): boolean {
@@ -271,8 +294,8 @@ export type Action =
   | { type: "ENTER_RAPIDFIRE" }
   | { type: "RAPID_SELECT_GROUP"; groupKey: string } // host picks a lettered group for the up-next team
   | { type: "RAPID_BEGIN_TURN" } // host presses Start on the "get ready" intro
-  | { type: "RAPID_RECORD_ANSWER"; text: string }
-  | { type: "RAPID_SKIP" }
+  | { type: "RAPID_RECORD_ANSWER"; questionId: string; text: string } // editable for any of the 5 questions, any time
+  | { type: "RAPID_SET_CURRENT_QUESTION"; index: number } // host clicks/focuses a question (or "Next") to highlight it as current
   | { type: "RAPID_FINISH" } // host ends the current team's turn early (e.g. time's up)
   | { type: "EXIT_RAPIDFIRE" }
   // rapid fire — review phase (after every team has played)
@@ -355,26 +378,80 @@ function archiveFinishedRapid(
 }
 
 /**
- * Steal turn order: every other team, starting with the one immediately after
- * the team that missed and wrapping around — but never including that team
- * itself (getting back around to them means the audience's turn instead).
+ * Team turn-order direction/starting point, keyed off a round "slot" — a
+ * real round's `order`, or Rapid Fire's virtual slot (one past the last
+ * round). Rounds before the Picture Round move forward through the roster
+ * starting at team 1, 2, 3…; the Picture Round itself has no turn order
+ * (everyone plays at once); rounds after it — and Rapid Fire — move
+ * backward, continuing that same sweep from the last team down.
  */
-function stealOrderFor(session: SessionState): string[] {
-  const { teamOrder, activeTeamIndex } = session;
+function pictureRoundOrder(content: GameContent): number {
+  return content.rounds.find((r) => r.type === "picture")?.order ?? Infinity;
+}
+
+/** Rapid Fire's virtual slot in the round sequence — one past the last real round. */
+function rapidFireOrderSlot(content: GameContent): number {
+  return content.rounds.reduce((max, r) => Math.max(max, r.order), 0) + 1;
+}
+
+function turnDirectionFor(order: number, content: GameContent): 1 | -1 {
+  return order < pictureRoundOrder(content) ? 1 : -1;
+}
+
+function turnStartIndexFor(
+  order: number,
+  content: GameContent,
+  teamCount: number,
+): number {
+  if (teamCount === 0) return 0;
+  const pictureOrder = pictureRoundOrder(content);
+  if (order < pictureOrder) return (order - 1) % teamCount;
+  const stepsAfterPicture = order - pictureOrder;
+  return (((teamCount - stepsAfterPicture) % teamCount) + teamCount) % teamCount;
+}
+
+/** All team ids in roster order starting at `startIndex` and stepping by
+ * `direction`, wrapping around exactly once so every team appears once. */
+function teamRotation(
+  teamOrder: string[],
+  startIndex: number,
+  direction: 1 | -1,
+): string[] {
   const n = teamOrder.length;
-  if (n <= 1) return [];
+  if (n === 0) return [];
   const order: string[] = [];
-  for (let i = 1; i < n; i++) {
-    order.push(teamOrder[(activeTeamIndex + i) % n]);
+  for (let i = 0; i < n; i++) {
+    order.push(teamOrder[(((startIndex + direction * i) % n) + n) % n]);
   }
   return order;
 }
 
-function rotate(session: SessionState): number {
+/** The current round's turn direction (defaults forward if there's no round
+ * in play, e.g. rapid fire/tiebreaker — callers that need Rapid Fire's own
+ * direction use turnDirectionFor(rapidFireOrderSlot(content), content) instead). */
+function currentTurnDirection(state: HostState): 1 | -1 {
+  const round = currentRound(state);
+  if (!round || !state.content) return 1;
+  return turnDirectionFor(round.order, state.content);
+}
+
+/**
+ * Steal turn order: every other team, starting with the one immediately after
+ * the team that missed and continuing in the round's turn direction — but
+ * never including that team itself (getting back around to them means the
+ * audience's turn instead).
+ */
+function stealOrderFor(session: SessionState, direction: 1 | -1): string[] {
+  if (session.teamOrder.length <= 1) return [];
+  return teamRotation(session.teamOrder, session.activeTeamIndex, direction).slice(1);
+}
+
+function rotate(session: SessionState, direction: 1 | -1): number {
   if (!session.settings.rotateStartingTeam || session.teamOrder.length === 0) {
     return session.activeTeamIndex;
   }
-  return (session.activeTeamIndex + 1) % session.teamOrder.length;
+  const n = session.teamOrder.length;
+  return (((session.activeTeamIndex + direction) % n) + n) % n;
 }
 
 const CLEARED = {
@@ -642,10 +719,23 @@ function reducer(state: HostState, action: Action): HostState {
       if (!state.session || !state.content) return state;
       const round = state.content.rounds.find((r) => r.id === action.roundId);
       if (!round) return state;
+      // Only set the round's fixed starting team the first time it's
+      // opened — resuming a round already in progress must not restart its
+      // rotation. The Picture Round has no turn order (everyone plays).
+      const alreadyStarted = roundPlayedCount(state.session, round) > 0;
+      const activeTeamIndex =
+        round.type !== "picture" && !alreadyStarted
+          ? turnStartIndexFor(round.order, state.content, state.session.teamOrder.length)
+          : state.session.activeTeamIndex;
       return {
         ...state,
-        session: { ...state.session, currentRoundId: round.id, currentQuestionId: null },
-        view: round.type === "picture" ? "board" : "board",
+        session: {
+          ...state.session,
+          currentRoundId: round.id,
+          currentQuestionId: null,
+          activeTeamIndex,
+        },
+        view: "board",
         ...CLEARED,
       };
     }
@@ -719,7 +809,7 @@ function reducer(state: HostState, action: Action): HostState {
       return {
         ...state,
         stealing: true,
-        stealOrder: stealOrderFor(state.session),
+        stealOrder: stealOrderFor(state.session, currentTurnDirection(state)),
         stealIndex: 0,
         revealed: false,
         timer: IDLE_TIMER,
@@ -860,7 +950,7 @@ function reducer(state: HostState, action: Action): HostState {
       // assigned team — audience bonus questions don't consume a turn.
       const activeTeamIndex =
         round && round.type === "standard" && !isAudienceQuestion(state)
-          ? rotate(state.session)
+          ? rotate(state.session, currentTurnDirection(state))
           : state.session.activeTeamIndex;
       return {
         ...state,
@@ -888,12 +978,17 @@ function reducer(state: HostState, action: Action): HostState {
       const { queue: archivedQueue, completed } = archiveFinishedRapid(state);
 
       // Lock in a fresh turn order only on a true first entry (queue still
-      // null); once a full pass empties it, stop and wait for review.
+      // null); once a full pass empties it, stop and wait for review. Rapid
+      // Fire continues the same backward sweep started by rounds after the
+      // Picture Round (see turnStartIndexFor/turnDirectionFor).
+      const rapidSlot = rapidFireOrderSlot(state.content);
       const queue =
         archivedQueue === null
-          ? [...state.session.teams]
-              .sort((a, b) => a.score - b.score || a.name.localeCompare(b.name))
-              .map((t) => t.id)
+          ? teamRotation(
+              state.session.teamOrder,
+              turnStartIndexFor(rapidSlot, state.content, state.session.teamOrder.length),
+              turnDirectionFor(rapidSlot, state.content),
+            )
           : archivedQueue;
 
       // No auto-deal: land on the group board so the host can pick a lettered
@@ -936,7 +1031,7 @@ function reducer(state: HostState, action: Action): HostState {
         rapid: {
           teamId: nextTeamId,
           questionIds: group.questionIds,
-          queue: [...group.questionIds],
+          currentIndex: 0,
           answers: {},
           finished: false,
           started: false,
@@ -957,24 +1052,26 @@ function reducer(state: HostState, action: Action): HostState {
 
     case "RAPID_RECORD_ANSWER": {
       const rf = state.rapid;
-      if (!rf || rf.finished) return state;
-      const qid = rf.queue[0];
-      if (!qid) return state;
-      const answers = { ...rf.answers, [qid]: action.text };
-      const queue = rf.queue.slice(1);
-      const finished = queue.length === 0;
+      if (!rf || rf.finished || !rf.questionIds.includes(action.questionId)) {
+        return state;
+      }
       return {
         ...state,
-        rapid: { ...rf, answers, queue, finished },
-        timer: finished ? IDLE_TIMER : state.timer,
+        rapid: {
+          ...rf,
+          answers: { ...rf.answers, [action.questionId]: action.text },
+        },
       };
     }
 
-    case "RAPID_SKIP": {
+    case "RAPID_SET_CURRENT_QUESTION": {
       const rf = state.rapid;
-      if (!rf || rf.finished || rf.queue.length <= 1) return state;
-      const [front, ...rest] = rf.queue;
-      return { ...state, rapid: { ...rf, queue: [...rest, front] } };
+      if (!rf || rf.finished) return state;
+      const index = Math.max(
+        0,
+        Math.min(rf.questionIds.length - 1, action.index),
+      );
+      return { ...state, rapid: { ...rf, currentIndex: index } };
     }
 
     case "RAPID_FINISH": {
@@ -1010,15 +1107,22 @@ function reducer(state: HostState, action: Action): HostState {
 
     /* ---- rapid fire: review phase ---- */
     case "RAPID_REVIEW_START": {
-      if (!state.session || state.session.rapidCompleted.length === 0) {
-        return state;
-      }
+      if (!state.session) return state;
+      // Fold in the just-finished team's turn if the host jumped straight
+      // here from the "all teams done" screen without an intervening
+      // ENTER_RAPIDFIRE — otherwise that last team's answers would be
+      // missing from the review pass.
+      const { queue, completed } = archiveFinishedRapid(state);
+      if (completed.length === 0) return state;
       return {
         ...state,
+        rapid: null,
         session: {
           ...state.session,
+          rapidQueue: queue,
+          rapidCompleted: completed,
           rapidReview: {
-            teamIds: state.session.rapidCompleted.map((r) => r.teamId),
+            teamIds: completed.map((r) => r.teamId),
             currentIndex: 0,
             questionIndex: 0,
             graded: {},
@@ -1557,14 +1661,19 @@ export function buildLive(state: HostState): LiveDisplay | null {
         return { ...base, screen: "scoreboard", message: "Rapid Fire", timer: IDLE_TIMER };
       }
       const team2 = session.teams.find((t) => t.id === rf.teamId);
-      const cur = getQuestion(state, rf.queue[0] ?? null);
+      const cur = getQuestion(state, rf.questionIds[rf.currentIndex] ?? null);
+      const answeredCount = rf.questionIds.filter(
+        (id) => (rf.answers[id]?.trim().length ?? 0) > 0,
+      ).length;
       return {
         ...base,
         screen: "rapid_fire",
+        activeTeamId: team2?.id ?? null,
+        activeTeamName: team2?.name ?? null,
         rapidFire: {
           teamName: team2?.name ?? "",
           total: rf.questionIds.length,
-          answered: rf.questionIds.length - rf.queue.length,
+          answered: answeredCount,
           question:
             rf.finished || !rf.started ? null : cur?.question ?? null,
           finished: rf.finished,

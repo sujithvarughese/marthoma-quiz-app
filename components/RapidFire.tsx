@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { getQuestion, useDispatch, useGame } from "@/lib/store";
 import { rapidFireQuestions } from "@/lib/content";
 import { Button } from "./ui";
@@ -11,7 +10,6 @@ export function RapidFire() {
   const state = useGame();
   const dispatch = useDispatch();
   const { content, session, rapid, timer } = state;
-  const [answerText, setAnswerText] = useState("");
   if (!content || !session) return null;
 
   const { rapidReview, rapidCompleted, rapidQueue } = session;
@@ -213,10 +211,48 @@ export function RapidFire() {
 
   const team = session.teams.find((t) => t.id === rapid.teamId);
   const teamName = team?.name ?? "Team";
-  const answeredCount = rapid.questionIds.length - rapid.queue.length;
+  const answeredCount = rapid.questionIds.filter(
+    (id) => (rapid.answers[id]?.trim().length ?? 0) > 0,
+  ).length;
 
-  /* ---- Team finished their turn: hand off to the next team ---- */
+  /* ---- Team finished their turn ---- */
   if (rapid.finished) {
+    // Whether anyone else is still owed a turn — if not, skip straight to
+    // review instead of a "Next team" button that has no one left to hand off to.
+    const isLastTeam = (rapidQueue?.length ?? 0) <= 1;
+
+    if (isLastTeam) {
+      return (
+        <div className="mx-auto max-w-3xl text-center">
+          <h2 className="text-5xl font-black tracking-tight text-yellow-300">
+            ⚡ Rapid Fire Complete!
+          </h2>
+          <p className="mt-6 text-2xl font-bold text-slate-200">
+            All teams have completed the Rapid Fire round.
+          </p>
+          <p className="mt-2 text-lg text-slate-400">
+            Time to review everyone&apos;s answers and award points.
+          </p>
+          <div className="mt-10 flex justify-center gap-4">
+            <Button
+              size="lg"
+              variant="amber"
+              onClick={() => dispatch({ type: "RAPID_REVIEW_START" })}
+            >
+              Review Responses →
+            </Button>
+            <Button
+              size="lg"
+              variant="ghost"
+              onClick={() => dispatch({ type: "EXIT_RAPIDFIRE" })}
+            >
+              Home
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="mx-auto max-w-3xl text-center">
         <h2 className="text-3xl font-bold text-slate-300">{teamName}</h2>
@@ -280,20 +316,12 @@ export function RapidFire() {
     );
   }
 
-  /* ---- In play: all of this team's questions on one page, current one
-   * highlighted with the answer box; the display mirrors whichever question
-   * is highlighted here (rapid.queue[0]), so nothing there needs to change. */
-  const activeQuestionId = rapid.queue[0] ?? null;
-
-  const submitAnswer = () => {
-    dispatch({ type: "RAPID_RECORD_ANSWER", text: answerText.trim() });
-    setAnswerText("");
-  };
-
-  const skipQuestion = () => {
-    dispatch({ type: "RAPID_SKIP" });
-    setAnswerText("");
-  };
+  /* ---- In play: all 5 of this team's questions are visible and editable
+   * at once (the host can jump ahead or back to fix any of them) — the
+   * currentIndex one is just highlighted so whoever's reading questions
+   * aloud (host or speaker) always knows which one is live right now. The
+   * display mirrors currentIndex, so nothing there needs to change. */
+  const atLastQuestion = rapid.currentIndex >= rapid.questionIds.length - 1;
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -304,96 +332,101 @@ export function RapidFire() {
         </span>
       </div>
 
-      <div className="panel mb-6 flex flex-col items-center p-6">
+      <div className="panel mb-6 flex flex-col items-center gap-4 p-6">
         <CountdownTimer
           endsAt={timer.endsAt}
           durationSeconds={timer.durationSeconds}
           label="Rapid fire"
           size="md"
         />
+        <Button
+          variant="amber"
+          size="md"
+          disabled={atLastQuestion}
+          onClick={() =>
+            dispatch({
+              type: "RAPID_SET_CURRENT_QUESTION",
+              index: rapid.currentIndex + 1,
+            })
+          }
+        >
+          Next Question →
+        </Button>
       </div>
 
       <div className="flex flex-col gap-3">
         {rapid.questionIds.map((qid, i) => {
           const q = getQuestion(state, qid);
-          const isActive = qid === activeQuestionId;
-          const isAnswered = qid in rapid.answers;
-          const answerGiven = rapid.answers[qid]?.trim();
+          const isCurrent = i === rapid.currentIndex;
+          const answerText = rapid.answers[qid] ?? "";
+          const isAnswered = answerText.trim().length > 0;
 
           return (
             <div
               key={qid}
-              className={`panel flex flex-col gap-2 p-5 transition-colors ${
-                isActive ? "border-2 border-amber-400/70" : ""
+              onClick={() =>
+                dispatch({ type: "RAPID_SET_CURRENT_QUESTION", index: i })
+              }
+              className={`rapid-question-row panel flex cursor-pointer flex-col gap-3 p-5 transition-all ${
+                isCurrent
+                  ? "border-2 border-amber-400 bg-amber-400/10 shadow-[0_0_30px_rgba(251,191,36,0.25)]"
+                  : "border border-white/10 opacity-70"
               }`}
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="text-xl font-bold leading-snug text-white sm:text-2xl">
-                    <span className="text-slate-400">Q{i + 1} · </span>
+                  <div className="flex items-center gap-2">
+                    {isCurrent && (
+                      <span className="animate-pulse rounded-full bg-amber-400 px-2.5 py-0.5 text-xs font-black uppercase tracking-wide text-slate-900">
+                        ▶ Now
+                      </span>
+                    )}
+                    <span className="text-sm font-bold uppercase tracking-wide text-slate-400">
+                      Q{i + 1}
+                    </span>
+                  </div>
+                  <p
+                    className={`mt-1 font-bold leading-snug text-white ${
+                      isCurrent ? "text-2xl sm:text-3xl" : "text-lg"
+                    }`}
+                  >
                     {q?.question}
                   </p>
-                  {isAnswered && (
-                    <p className="mt-2 text-xl font-bold text-white">
-                      {answerGiven || (
-                        <span className="italic text-slate-500">
-                          No answer given
-                        </span>
-                      )}
-                    </p>
-                  )}
                 </div>
 
-                {isAnswered ? (
-                  <span className="rounded-full bg-emerald-500/20 px-4 py-1.5 text-sm font-black text-emerald-300">
+                {isAnswered && (
+                  <span className="flex-shrink-0 rounded-full bg-emerald-500/20 px-4 py-1.5 text-sm font-black text-emerald-300">
                     ✓ Answered
                   </span>
-                ) : (
-                  !isActive && (
-                    <span className="rounded-full bg-white/10 px-4 py-1.5 text-sm font-semibold text-slate-400">
-                      Pending
-                    </span>
-                  )
                 )}
               </div>
 
-              {isActive && (
-                <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end">
-                  <div className="flex-1">
-                    <input
-                      id="rapid-answer"
-                      type="text"
-                      aria-label="Team's answer"
-                      autoFocus
-                      value={answerText}
-                      onChange={(e) => setAnswerText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") submitAnswer();
-                      }}
-                      placeholder="Type the team's answer…"
-                      className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-xl font-semibold text-white placeholder:text-slate-500 focus:border-emerald-400/60 focus:outline-none"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      className="flex-1 sm:flex-none"
-                      variant="success"
-                      size="md"
-                      onClick={submitAnswer}
-                    >
-                      ✓ Answered
-                    </Button>
-                    <Button
-                      className="flex-1 sm:flex-none"
-                      variant="ghost"
-                      size="md"
-                      onClick={skipQuestion}
-                    >
-                      ↷ Skip
-                    </Button>
-                  </div>
-                </div>
-              )}
+              {/* Host-only editable transcript box — hidden on the
+                  read-only /speaker mirror (see .rapid-answer-box in
+                  globals.css), which just shows the question clearly
+                  instead of a control it can't use. */}
+              <div
+                className="rapid-answer-box"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <input
+                  type="text"
+                  aria-label={`Team's answer for question ${i + 1}`}
+                  value={answerText}
+                  onFocus={() =>
+                    dispatch({ type: "RAPID_SET_CURRENT_QUESTION", index: i })
+                  }
+                  onChange={(e) =>
+                    dispatch({
+                      type: "RAPID_RECORD_ANSWER",
+                      questionId: qid,
+                      text: e.target.value,
+                    })
+                  }
+                  placeholder="Type the team's answer…"
+                  className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-lg font-semibold text-white placeholder:text-slate-500 focus:border-emerald-400/60 focus:outline-none"
+                />
+              </div>
             </div>
           );
         })}
