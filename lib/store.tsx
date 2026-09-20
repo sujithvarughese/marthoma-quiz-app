@@ -211,6 +211,26 @@ export function tiedForFirst(teams: SessionTeam[]): SessionTeam[] {
   return tied.length >= 2 ? tied : [];
 }
 
+/**
+ * The id of whichever round/Rapid Fire/Tiebreaker the host should play
+ * next, in the fixed sequence rounds (in order) → Rapid Fire → Tiebreaker
+ * — used to put a glow on that card everywhere (host, speaker, display).
+ * Returns null once nothing playable is left (game over, no tie).
+ */
+export function currentFocusId(
+  content: GameContent,
+  session: SessionState,
+): string | null {
+  const used = new Set(session.usedQuestionIds);
+  const nextRound = [...content.rounds]
+    .sort((a, b) => a.order - b.order)
+    .find((r) => r.questionIds.some((id) => !used.has(id)));
+  if (nextRound) return nextRound.id;
+  if (!session.rapidFireCompleted) return "rapid-fire";
+  if (tiedForFirst(session.teams).length > 0) return "tiebreaker";
+  return null;
+}
+
 /* ------------------------------------------------------------------ *
  * Actions
  * ------------------------------------------------------------------ */
@@ -408,6 +428,7 @@ function reducer(state: HostState, action: Action): HostState {
         rapidQueue: action.session.rapidQueue ?? null,
         rapidCompleted: action.session.rapidCompleted ?? [],
         rapidReview: action.session.rapidReview ?? null,
+        rapidFireCompleted: action.session.rapidFireCompleted ?? false,
         tiebreaker: action.session.tiebreaker ?? null,
         settings: {
           ...DEFAULT_SETTINGS,
@@ -571,6 +592,7 @@ function reducer(state: HostState, action: Action): HostState {
           rapidQueue: null,
           rapidCompleted: [],
           rapidReview: null,
+          rapidFireCompleted: false,
           tiebreaker: null,
         },
         view: "setup",
@@ -1077,6 +1099,7 @@ function reducer(state: HostState, action: Action): HostState {
               rapidQueue: null,
               rapidCompleted: [],
               rapidReview: null,
+              rapidFireCompleted: true,
             }
           : state.session,
         view: "home",
@@ -1288,6 +1311,7 @@ export function buildLive(state: HostState): LiveDisplay | null {
     message: null,
     timer: state.timer,
     rounds: roundsSummaryOf(content, session),
+    focusId: currentFocusId(content, session),
     board: null,
     scores: scoresOf(session),
     rapidFire: null,

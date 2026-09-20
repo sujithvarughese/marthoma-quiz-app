@@ -1,6 +1,6 @@
 "use client";
 
-import { tiedForFirst, useDispatch, useGame } from "@/lib/store";
+import { currentFocusId, tiedForFirst, useDispatch, useGame } from "@/lib/store";
 import { rapidFireQuestions, tiebreakerQuestions } from "@/lib/content";
 
 // Accent colours cycle through the rounds for quick visual distinction.
@@ -34,8 +34,13 @@ export function HomeScreen() {
   const tiebreakerRemaining = tiebreakerQuestions(content).filter(
     (q) => !used.has(q.id),
   ).length;
-  const canTiebreaker =
-    tiebreakerActive || (tied.length >= 2 && tiebreakerRemaining > 0);
+
+  // The card the host should play next in the fixed sequence — rounds (in
+  // order), then Rapid Fire, then the tiebreaker — glows everywhere so it's
+  // always obvious what's up next.
+  const focus = currentFocusId(content, session);
+  const showTiebreaker =
+    tiebreakerActive || (focus === "tiebreaker" && tiebreakerRemaining > 0);
 
   return (
     <div>
@@ -47,11 +52,12 @@ export function HomeScreen() {
             (id) => !used.has(id),
           ).length;
           const completed = remaining === 0;
+          const isFocus = round.id === focus;
           return (
             <button
               key={round.id}
               onClick={() => dispatch({ type: "OPEN_ROUND", roundId: round.id })}
-              className={`group relative flex flex-col justify-between overflow-hidden rounded-3xl bg-gradient-to-br ${ROUND_ACCENTS[i % ROUND_ACCENTS.length]} p-6 text-left shadow-xl transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/50 ${completed ? "opacity-60" : ""}`}
+              className={`group relative flex flex-col justify-between overflow-hidden rounded-3xl bg-gradient-to-br ${ROUND_ACCENTS[i % ROUND_ACCENTS.length]} p-6 text-left shadow-xl transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/50 ${completed ? "opacity-60" : ""} ${isFocus ? "animate-focus-glow" : ""}`}
             >
               {completed && (
                 <span className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1 text-xs font-black uppercase tracking-wide text-white shadow-lg">
@@ -86,7 +92,7 @@ export function HomeScreen() {
       <div className="grid gap-4 sm:grid-cols-3">
         <button
           onClick={() => dispatch({ type: "ENTER_RAPIDFIRE" })}
-          className="flex flex-col justify-between rounded-3xl border-2 border-yellow-400/60 bg-yellow-400/10 p-6 text-left shadow-xl transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/50"
+          className={`flex flex-col justify-between rounded-3xl border-2 border-yellow-400/60 bg-yellow-400/10 p-6 text-left shadow-xl transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/50 ${focus === "rapid-fire" ? "animate-focus-glow" : ""}`}
         >
           <span className="text-4xl">⚡</span>
           <h3 className="mt-3 text-2xl font-black text-yellow-300">Rapid Fire</h3>
@@ -95,25 +101,22 @@ export function HomeScreen() {
           </p>
         </button>
 
-        <button
-          onClick={() => dispatch({ type: "ENTER_TIEBREAKER" })}
-          disabled={!canTiebreaker}
-          className={`flex flex-col justify-between rounded-3xl border-2 border-rose-400/60 bg-rose-400/10 p-6 text-left shadow-xl transition-transform focus:outline-none focus-visible:ring-4 focus-visible:ring-white/50 ${
-            canTiebreaker ? "hover:scale-[1.02]" : "cursor-not-allowed opacity-50"
-          }`}
-        >
-          <span className="text-4xl">🎯</span>
-          <h3 className="mt-3 text-2xl font-black text-rose-300">
-            {tiebreakerActive ? "Resume Tiebreaker" : "Tiebreaker"}
-          </h3>
-          <p className="mt-1 text-sm font-semibold uppercase tracking-wide text-rose-200/70">
-            {tiebreakerActive
-              ? "Sudden-death round in progress"
-              : tied.length >= 2
-                ? `${tied.length} teams tied at ${topScore} pts`
-                : "No tie for 1st place"}
-          </p>
-        </button>
+        {showTiebreaker && (
+          <button
+            onClick={() => dispatch({ type: "ENTER_TIEBREAKER" })}
+            className={`flex flex-col justify-between rounded-3xl border-2 border-rose-400/60 bg-rose-400/10 p-6 text-left shadow-xl transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/50 ${focus === "tiebreaker" ? "animate-focus-glow" : ""}`}
+          >
+            <span className="text-4xl">🎯</span>
+            <h3 className="mt-3 text-2xl font-black text-rose-300">
+              {tiebreakerActive ? "Resume Tiebreaker" : "Tiebreaker"}
+            </h3>
+            <p className="mt-1 text-sm font-semibold uppercase tracking-wide text-rose-200/70">
+              {tiebreakerActive
+                ? "Sudden-death round in progress"
+                : `${tied.length} teams tied at ${topScore} pts`}
+            </p>
+          </button>
+        )}
 
         <button
           onClick={() => {

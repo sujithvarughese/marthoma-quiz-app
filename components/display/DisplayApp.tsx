@@ -400,7 +400,20 @@ function RoundsScreen({ live }: { live: LiveDisplay }) {
             What&apos;s Ahead
           </h1>
         </div>
-        <ActiveBanner live={live} />
+        {/* The tiebreaker only shows up here once it's eligible (rather than
+            a permanent 7th tile) — sitting in the header keeps the card
+            grid's row math (and the page's total height) unchanged. */}
+        <div className="flex flex-wrap items-center gap-4">
+          {live.focusId === "tiebreaker" && (
+            <div className="animate-focus-glow inline-flex items-center gap-3 rounded-full border-2 border-rose-400/70 bg-gradient-to-r from-rose-950/80 via-rose-900/60 to-rose-950/80 px-6 py-3 shadow-lg backdrop-blur-md">
+              <span className="text-2xl">🔥</span>
+              <span className="text-2xl font-black tracking-wide text-rose-200">
+                Tiebreaker Ready!
+              </span>
+            </div>
+          )}
+          <ActiveBanner live={live} />
+        </div>
       </header>
 
       {/* Grid of Category Cards (Read-only presentation for projector).
@@ -417,6 +430,13 @@ function RoundsScreen({ live }: { live: LiveDisplay }) {
           const isSelected = live.roundId === r.id;
           const isCenteredTrailer =
             trailingCount === 1 && i === rounds.length - 1;
+          // "Up next" glow — suppressed once the card is actively selected
+          // (that ring already says "look here"), and combined into a
+          // single animation declaration for Rapid Fire, which already has
+          // its own permanent gold pulse (an element can only run one
+          // `animation` shorthand, so the two can't come from separate
+          // classes).
+          const isFocus = live.focusId === r.id && !isSelected;
 
           return (
             <div
@@ -425,8 +445,8 @@ function RoundsScreen({ live }: { live: LiveDisplay }) {
                 isCenteredTrailer ? "lg:col-start-2" : ""
               } ${
                 isRapidFire
-                  ? "animate-gold-pulse border-amber-300 bg-gradient-to-br from-amber-400 via-yellow-500 to-amber-600"
-                  : `bg-gradient-to-br ${style.bg} ${style.border} ${style.glow}`
+                  ? `${isFocus ? "animate-gold-pulse-focus" : "animate-gold-pulse"} border-amber-300 bg-gradient-to-br from-amber-400 via-yellow-500 to-amber-600`
+                  : `${isFocus ? "animate-focus-glow" : ""} bg-gradient-to-br ${style.bg} ${style.border} ${style.glow}`
               } ${
                 isSelected
                   ? "animate-category-chosen scale-105 ring-4 ring-amber-400 shadow-[0_0_60px_rgba(251,191,36,0.6)] z-20"

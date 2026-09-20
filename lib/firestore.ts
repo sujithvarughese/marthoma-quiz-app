@@ -196,6 +196,7 @@ function toGameDoc(s: SessionState): GameDoc {
     rapidQueue: s.rapidQueue,
     rapidCompleted: s.rapidCompleted,
     rapidReview: s.rapidReview,
+    rapidFireCompleted: s.rapidFireCompleted,
     tiebreaker: s.tiebreaker,
     settings: s.settings,
   };

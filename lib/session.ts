@@ -119,6 +119,10 @@ export interface SessionState {
   rapidCompleted: RapidFireResult[];
   /** Rapid-fire: the active grading pass, or null before review starts. */
   rapidReview: RapidFireReview | null;
+  /** True once every team has played and been reviewed — see
+   * RAPID_REVIEW_DONE. Drives the "up next" glow moving on to the
+   * tiebreaker (or nothing) once Rapid Fire is behind everyone. */
+  rapidFireCompleted: boolean;
 
   /** Sudden-death tiebreaker in progress, or null. See TiebreakerState. */
   tiebreaker: TiebreakerState | null;
@@ -139,6 +143,7 @@ export interface GameDoc {
   rapidQueue: string[] | null;
   rapidCompleted: RapidFireResult[];
   rapidReview: RapidFireReview | null;
+  rapidFireCompleted: boolean;
   tiebreaker: TiebreakerState | null;
   settings: GameSettings;
 }
@@ -229,6 +234,8 @@ export function isGameDoc(v: unknown): v is GameDoc {
     Array.isArray(g.rapidCompleted) &&
     g.rapidCompleted.every(isRapidFireResult) &&
     (g.rapidReview === null || isRapidFireReview(g.rapidReview)) &&
+    (g.rapidFireCompleted === undefined ||
+      typeof g.rapidFireCompleted === "boolean") &&
     (g.tiebreaker === null ||
       g.tiebreaker === undefined ||
       isTiebreakerState(g.tiebreaker)) &&

@@ -132,6 +132,7 @@ function freshSession(): SessionState {
     rapidQueue: null,
     rapidCompleted: [],
     rapidReview: null,
+    rapidFireCompleted: false,
     tiebreaker: null,
     settings: DEFAULT_SETTINGS,
   };

@@ -317,6 +317,35 @@ body {
 }
 
 /*
+ * "Up next" glow — the round/Rapid Fire/Tiebreaker card the host should
+ * play next in the fixed sequence, on every surface (host, speaker,
+ * display). A distinct sky-blue from the amber gold-pulse/selected-ring
+ * colors above so the three cues never read as the same thing. The
+ * gold-pulse-focus variant lets the Rapid Fire tile (which always has its
+ * own permanent gold pulse) run both animations at once — one class can't
+ * layer two `animation` declarations from separate rules on top of each
+ * other, so the combination needs its own single declaration.
+ */
+@keyframes focusGlowPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.55), 0 0 35px 4px rgba(56, 189, 248, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(56, 189, 248, 0.9), 0 0 60px 8px rgba(56, 189, 248, 0.75);
+  }
+}
+
+.animate-focus-glow {
+  animation: focusGlowPulse 2.2s infinite ease-in-out;
+}
+
+.animate-gold-pulse-focus {
+  animation:
+    goldGlowPulse 2.5s infinite ease-in-out,
+    focusGlowPulse 2.2s infinite ease-in-out;
+}
+
+/*
  * Card reveal: the selected board tile travels from its grid position to
  * center stage (cardRevealTravel, on the outer wrapper) while physically
  * flipping over from its face-down side to the question side

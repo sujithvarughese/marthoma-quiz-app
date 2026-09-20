@@ -135,6 +135,10 @@ export interface LiveDisplay {
 
   /** Categories/rounds summary for "rounds" screen (or null). */
   rounds?: LiveRoundSummary[] | null;
+  /** Id of whichever round/"rapid-fire"/"tiebreaker" is up next in the
+   * fixed play order, so the "rounds" screen can glow it — or null once
+   * everything playable is done. See currentFocusId() in lib/store.tsx. */
+  focusId?: string | null;
 
   /** Board tiles for the "board" screen (null on other screens). */
   board: LiveBoardTile[] | null;
@@ -174,6 +178,7 @@ export function welcomeLive(name: string, subtitle: string): LiveDisplay {
     message: `${subtitle} — ${name}`,
     timer: IDLE_TIMER,
     rounds: null,
+    focusId: null,
     board: null,
     scores: null,
     rapidFire: null,
