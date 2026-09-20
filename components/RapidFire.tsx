@@ -304,13 +304,6 @@ export function RapidFire() {
           >
             ▶ Start
           </Button>
-          <Button
-            size="lg"
-            variant="ghost"
-            onClick={() => dispatch({ type: "EXIT_RAPIDFIRE" })}
-          >
-            Home
-          </Button>
         </div>
       </div>
     );
