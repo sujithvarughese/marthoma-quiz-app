@@ -1200,7 +1200,7 @@ function RapidCardStage({
             </div>
 
             {/* BACK FACE — get-ready message, then the questions */}
-            <div className="card-face card-face-back relative flex flex-col items-center justify-center rounded-3xl border-4 border-yellow-400/80 bg-gradient-to-br from-slate-900 via-yellow-950/40 to-slate-950 p-12 shadow-[0_20px_70px_rgba(0,0,0,0.8),0_0_50px_rgba(250,204,21,0.25)] select-none">
+            <div className="card-face card-face-back relative flex flex-col items-center justify-center rounded-3xl border-4 border-yellow-400/80 p-12 shadow-[0_0_50px_rgba(250,204,21,0.25)] select-none">
               {children}
             </div>
           </div>
