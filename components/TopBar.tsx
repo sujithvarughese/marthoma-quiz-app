@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { currentRound, useDispatch, useGame } from "@/lib/store";
+import { activeTeam, currentRound, useDispatch, useGame } from "@/lib/store";
 import { Button } from "./ui";
 import { SyncIndicator } from "./SyncIndicator";
 
@@ -9,6 +9,12 @@ export function TopBar() {
   const state = useGame();
   const dispatch = useDispatch();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pickingTeam, setPickingTeam] = useState(false);
+
+  function closeMenu() {
+    setMenuOpen(false);
+    setPickingTeam(false);
+  }
 
   const round = currentRound(state);
   let context = "";
@@ -80,54 +86,89 @@ export function TopBar() {
 
           {menuOpen && (
             <>
-              <div
-                className="fixed inset-0 z-40"
-                onClick={() => setMenuOpen(false)}
-              />
+              <div className="fixed inset-0 z-40" onClick={closeMenu} />
               <div
                 role="menu"
                 className="absolute right-0 z-50 mt-2 w-60 overflow-hidden rounded-xl border border-white/15 bg-[#0b1120] shadow-2xl"
               >
-                <button
-                  role="menuitem"
-                  className="block w-full px-4 py-3 text-left text-lg font-semibold text-slate-200 hover:bg-white/10"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    dispatch({ type: "SHOW_SCOREBOARD" });
-                  }}
-                >
-                  Show scoreboard
-                </button>
-                <button
-                  role="menuitem"
-                  className="block w-full px-4 py-3 text-left text-lg font-semibold text-slate-200 hover:bg-white/10"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    dispatch({ type: "OPEN_RULES" });
-                  }}
-                >
-                  How to play / rules
-                </button>
-                <button
-                  role="menuitem"
-                  className="block w-full px-4 py-3 text-left text-lg font-semibold text-slate-200 hover:bg-white/10"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    dispatch({ type: "GO_SETUP" });
-                  }}
-                >
-                  Teams / New game…
-                </button>
-                <button
-                  role="menuitem"
-                  className="block w-full px-4 py-3 text-left text-lg font-semibold text-slate-200 hover:bg-white/10"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    dispatch({ type: "REVERSE_TEAM_ORDER" });
-                  }}
-                >
-                  Reverse team order
-                </button>
+                {pickingTeam ? (
+                  <>
+                    <button
+                      role="menuitem"
+                      className="block w-full px-4 py-3 text-left text-lg font-semibold text-slate-400 hover:bg-white/10"
+                      onClick={() => setPickingTeam(false)}
+                    >
+                      ← Back
+                    </button>
+                    {(state.session?.teams ?? [])
+                      .slice()
+                      .sort((a, b) => a.order - b.order)
+                      .map((team) => {
+                        const isCurrent = team.id === activeTeam(state)?.id;
+                        return (
+                          <button
+                            key={team.id}
+                            role="menuitem"
+                            className="flex w-full items-center justify-between px-4 py-3 text-left text-lg font-semibold text-slate-200 hover:bg-white/10"
+                            onClick={() => {
+                              closeMenu();
+                              dispatch({
+                                type: "SELECT_TEAM_TURN",
+                                teamId: team.id,
+                              });
+                            }}
+                          >
+                            {team.name}
+                            {isCurrent && (
+                              <span className="text-sm font-bold text-emerald-400">
+                                ✓
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                  </>
+                ) : (
+                  <>
+                    <button
+                      role="menuitem"
+                      className="block w-full px-4 py-3 text-left text-lg font-semibold text-slate-200 hover:bg-white/10"
+                      onClick={() => {
+                        closeMenu();
+                        dispatch({ type: "SHOW_SCOREBOARD" });
+                      }}
+                    >
+                      Show scoreboard
+                    </button>
+                    <button
+                      role="menuitem"
+                      className="block w-full px-4 py-3 text-left text-lg font-semibold text-slate-200 hover:bg-white/10"
+                      onClick={() => {
+                        closeMenu();
+                        dispatch({ type: "OPEN_RULES" });
+                      }}
+                    >
+                      How to play / rules
+                    </button>
+                    <button
+                      role="menuitem"
+                      className="block w-full px-4 py-3 text-left text-lg font-semibold text-slate-200 hover:bg-white/10"
+                      onClick={() => {
+                        closeMenu();
+                        dispatch({ type: "GO_SETUP" });
+                      }}
+                    >
+                      Teams / New game…
+                    </button>
+                    <button
+                      role="menuitem"
+                      className="block w-full px-4 py-3 text-left text-lg font-semibold text-slate-200 hover:bg-white/10"
+                      onClick={() => setPickingTeam(true)}
+                    >
+                      Select team turn…
+                    </button>
+                  </>
+                )}
               </div>
             </>
           )}

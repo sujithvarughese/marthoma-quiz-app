@@ -276,7 +276,7 @@ export type Action =
   | { type: "RENAME_TEAM"; teamId: string; name: string }
   | { type: "REORDER_TEAMS"; teamIds: string[] }
   | { type: "RANDOMIZE_TEAMS" }
-  | { type: "REVERSE_TEAM_ORDER" }
+  | { type: "SELECT_TEAM_TURN"; teamId: string } // host manually overrides whose turn is current, just in case
   | { type: "START_GAME" }
   | { type: "NEW_GAME" }
   // navigation
@@ -648,26 +648,13 @@ function reducer(state: HostState, action: Action): HostState {
       };
     }
 
-    case "REVERSE_TEAM_ORDER": {
+    case "SELECT_TEAM_TURN": {
       if (!state.session) return state;
-      const activeId = activeTeamIdOf(state.session);
-      const teams = [...state.session.teams]
-        .sort((a, b) => a.order - b.order)
-        .reverse()
-        .map((t, i) => ({ ...t, order: i }));
-      const teamOrder = teams.map((t) => t.id);
-      const activeTeamIndex = activeId ? teamOrder.indexOf(activeId) : -1;
+      const index = state.session.teamOrder.indexOf(action.teamId);
+      if (index === -1) return state;
       return {
         ...state,
-        session: {
-          ...state.session,
-          teams,
-          teamOrder,
-          activeTeamIndex:
-            activeTeamIndex >= 0
-              ? activeTeamIndex
-              : state.session.activeTeamIndex,
-        },
+        session: { ...state.session, activeTeamIndex: index },
       };
     }
 
