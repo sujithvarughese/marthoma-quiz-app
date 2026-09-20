@@ -74,16 +74,27 @@ export interface LiveRapidFire {
   /** True once the host has started the timer; before that, the audience
    * sees a "get ready" screen instead of the first question. */
   started: boolean;
+  /** The group card this turn was dealt from, plus the whole board, so the
+   * projector can fly the chosen card out of its tile position and flip it
+   * over to reveal the questions. Optional for older live documents. */
+  groupKey?: string | null;
+  groups?: LiveRapidBoardTile[];
 }
 
 /**
  * The lettered group-selection board shown between rapid-fire turns, while
  * the host is picking which group of questions the up-next team will get.
  */
+export interface LiveRapidBoardTile {
+  key: string;
+  label: string;
+  used: boolean;
+}
+
 export interface LiveRapidBoard {
   /** Team whose turn it is to pick, or null if none. */
   teamName: string | null;
-  tiles: { key: string; label: string; used: boolean }[];
+  tiles: LiveRapidBoardTile[];
 }
 
 /** One row of the family-feud-style rapid-fire review board. */

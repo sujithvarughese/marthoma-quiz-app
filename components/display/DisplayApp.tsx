@@ -2,11 +2,19 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { subscribeLive } from "@/lib/firebaseClient";
 import {
   welcomeLive,
   type LiveDisplay,
+  type LiveRapidBoardTile,
+  type LiveRapidFire,
   type LiveScore,
 } from "@/lib/live";
 import { CountdownTimer } from "@/components/CountdownTimer";
@@ -1048,11 +1056,22 @@ function AnswerScreen({ live }: { live: LiveDisplay }) {
   );
 }
 
-/** Rapid Fire group-selection board — lettered tiles the team picks from */
-function RapidBoardScreen({ live }: { live: LiveDisplay }) {
-  const rb = live.rapidBoard;
-  if (!rb) return <WelcomeScreen live={live} />;
-  const remaining = rb.tiles.filter((t) => !t.used).length;
+/** Lettered tile grid shared by the pick screen and the dimmed backdrop the
+ * chosen card flies out of, so the tile positions match exactly. */
+function RapidBoardView({
+  teamName,
+  tiles,
+  selectedKey,
+  onSelectedEl,
+  animate,
+}: {
+  teamName: string | null;
+  tiles: LiveRapidBoardTile[];
+  selectedKey?: string | null;
+  onSelectedEl?: (el: HTMLDivElement | null) => void;
+  animate: boolean;
+}) {
+  const remaining = tiles.filter((t) => !t.used).length;
 
   return (
     <div className="relative flex flex-1 flex-col justify-between p-10 pb-6">
@@ -1061,36 +1080,133 @@ function RapidBoardScreen({ live }: { live: LiveDisplay }) {
           <h1 className="text-6xl font-black tracking-tight text-yellow-300 drop-shadow-[0_0_25px_rgba(253,224,71,0.4)]">
             ⚡ Rapid Fire
           </h1>
-          {rb.teamName && (
+          {teamName && (
             <p className="mt-2 text-3xl font-semibold text-slate-300">
               Up next:{" "}
-              <span className="font-black text-emerald-300">{rb.teamName}</span>
+              <span className="font-black text-emerald-300">{teamName}</span>
             </p>
           )}
         </div>
         <span className="text-2xl font-bold uppercase tracking-wider text-indigo-300">
-          {remaining} of {rb.tiles.length} groups remaining
+          {remaining} of {tiles.length} groups remaining
         </span>
       </header>
 
       <div className="mx-auto my-auto grid min-h-0 w-full max-w-[1500px] flex-1 grid-cols-2 content-center gap-8 py-8 sm:grid-cols-4">
-        {rb.tiles.map((tile, i) => (
-          <div
-            key={tile.key}
-            style={{ animationDelay: `${i * 50}ms` }}
-            className={`animate-board-cascade relative flex aspect-square items-center justify-center rounded-3xl select-none ${
-              tile.used
-                ? "border border-white/5 bg-white/5 text-white/20"
-                : "bg-gradient-to-br from-amber-400 to-yellow-600 text-white shadow-[0_10px_35px_rgba(250,204,21,0.35)]"
-            }`}
-          >
-            <span className="text-8xl font-black leading-none drop-shadow-[0_4px_16px_rgba(0,0,0,0.5)]">
-              {tile.used ? "✓" : tile.label}
-            </span>
-          </div>
-        ))}
+        {tiles.map((tile, i) => {
+          const isSelected = tile.key === selectedKey;
+          const isUsed = tile.used && !isSelected;
+          return (
+            <div
+              key={tile.key}
+              ref={isSelected ? onSelectedEl : undefined}
+              style={animate ? { animationDelay: `${i * 50}ms` } : undefined}
+              className={`${
+                animate ? "animate-board-cascade" : ""
+              } relative flex aspect-square items-center justify-center rounded-3xl select-none ${
+                isUsed
+                  ? "border border-white/5 bg-white/5 text-white/20"
+                  : "bg-gradient-to-br from-amber-400 to-yellow-600 text-white shadow-[0_10px_35px_rgba(250,204,21,0.35)]"
+              }`}
+            >
+              <span className="text-8xl font-black leading-none drop-shadow-[0_4px_16px_rgba(0,0,0,0.5)]">
+                {isUsed ? "✓" : tile.label}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
+  );
+}
+
+/** Rapid Fire group-selection board — lettered tiles the team picks from */
+function RapidBoardScreen({ live }: { live: LiveDisplay }) {
+  const rb = live.rapidBoard;
+  if (!rb) return <WelcomeScreen live={live} />;
+  return (
+    <RapidBoardView teamName={rb.teamName} tiles={rb.tiles} animate />
+  );
+}
+
+/** The chosen group card: it flies out of its tile on the (dimmed) board
+ * while slowly flipping over, and the get-ready message and then each
+ * question live on its back face. Keyed by group so a new pick replays it. */
+function RapidCardStage({
+  rf,
+  children,
+}: {
+  rf: LiveRapidFire;
+  children: React.ReactNode;
+}) {
+  const stageRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const tileElRef = useRef<HTMLDivElement | null>(null);
+  const label =
+    rf.groups?.find((g) => g.key === rf.groupKey)?.label ?? "⚡";
+
+  // Aim the card's launch at the chosen tile's real on-screen position
+  // (measured, so it works for any number of groups) before first paint.
+  useLayoutEffect(() => {
+    const stage = stageRef.current;
+    const card = cardRef.current;
+    const tile = tileElRef.current;
+    if (!stage || !card || !tile) return;
+    const s = stage.getBoundingClientRect();
+    const t = tile.getBoundingClientRect();
+    card.style.setProperty(
+      "--launch-x",
+      `${t.left + t.width / 2 - (s.left + s.width / 2)}px`,
+    );
+    card.style.setProperty(
+      "--launch-y",
+      `${t.top + t.height / 2 - (s.top + s.height / 2)}px`,
+    );
+    card.style.setProperty(
+      "--launch-scale",
+      `${Math.min(1, t.width / card.offsetWidth)}`,
+    );
+  }, [rf.groupKey]);
+
+  return (
+    <>
+      <div className="pointer-events-none absolute inset-0 z-0 flex flex-col opacity-20 blur-[1px]">
+        <RapidBoardView
+          teamName={rf.teamName}
+          tiles={rf.groups ?? []}
+          selectedKey={rf.groupKey}
+          onSelectedEl={(el) => {
+            tileElRef.current = el;
+          }}
+          animate={false}
+        />
+      </div>
+
+      <div
+        ref={stageRef}
+        className="perspective-1500 relative z-10 my-auto flex flex-1 flex-col items-center justify-center p-6 text-center"
+      >
+        <div
+          key={rf.groupKey ?? "rapid"}
+          ref={cardRef}
+          className="animate-card-reveal-travel relative w-full max-w-6xl"
+        >
+          <div className="animate-card-reveal-flip relative grid">
+            {/* FRONT FACE — the gold group tile, face-up as it was picked */}
+            <div className="card-face relative flex items-center justify-center rounded-3xl border-4 border-amber-200/80 bg-gradient-to-br from-amber-400 to-yellow-600 p-12 shadow-[0_20px_70px_rgba(0,0,0,0.8),0_0_50px_rgba(251,191,36,0.45)] select-none">
+              <span className="text-[14rem] font-black leading-none text-white drop-shadow-[0_4px_16px_rgba(0,0,0,0.5)]">
+                {label}
+              </span>
+            </div>
+
+            {/* BACK FACE — get-ready message, then the questions */}
+            <div className="card-face card-face-back relative flex flex-col items-center justify-center rounded-3xl border-4 border-yellow-400/80 bg-gradient-to-br from-slate-900 via-yellow-950/40 to-slate-950 p-12 shadow-[0_20px_70px_rgba(0,0,0,0.8),0_0_50px_rgba(250,204,21,0.25)] select-none">
+              {children}
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -1100,8 +1216,8 @@ function RapidFireScreen({ live }: { live: LiveDisplay }) {
   if (!rf) return <WelcomeScreen live={live} />;
 
   return (
-    <div className="flex flex-1 flex-col justify-between p-10 pb-6">
-      <header className="flex flex-wrap items-center justify-between gap-6">
+    <div className="relative flex flex-1 flex-col justify-between overflow-hidden p-10 pb-6">
+      <header className="relative z-10 flex flex-wrap items-center justify-between gap-6">
         <h1 className="text-6xl font-black tracking-tight text-yellow-300 drop-shadow-[0_0_25px_rgba(253,224,71,0.4)]">
           ⚡ {rf.teamName}
         </h1>
@@ -1112,8 +1228,8 @@ function RapidFireScreen({ live }: { live: LiveDisplay }) {
         )}
       </header>
 
-      <div className="perspective-1500 my-auto flex flex-1 flex-col items-center justify-center p-6 text-center">
-        {rf.finished ? (
+      {rf.finished ? (
+        <div className="perspective-1500 relative z-10 my-auto flex flex-1 flex-col items-center justify-center p-6 text-center">
           <div className="rounded-3xl border-4 border-emerald-400/80 bg-emerald-950/80 p-16 shadow-[0_0_60px_rgba(16,185,129,0.4)]">
             <p className="text-4xl font-bold uppercase tracking-widest text-emerald-300">
               Answers Recorded!
@@ -1122,26 +1238,28 @@ function RapidFireScreen({ live }: { live: LiveDisplay }) {
               Results revealed after every team has played.
             </p>
           </div>
-        ) : !rf.started ? (
-          <div className="rounded-3xl border-4 border-yellow-400/80 bg-gradient-to-br from-slate-900 via-yellow-950/40 to-slate-950 p-16 shadow-[0_0_50px_rgba(250,204,21,0.25)]">
-            <p className="text-4xl font-bold uppercase tracking-widest text-yellow-300">
-              Get Ready!
-            </p>
-            <p className="mt-4 text-5xl font-black text-white">
-              {rf.teamName}, you&apos;re up
-            </p>
-          </div>
-        ) : (
-          <div className="animate-card-foldout relative flex w-full max-w-6xl flex-col items-center justify-center rounded-3xl border-4 border-yellow-400/80 bg-gradient-to-br from-slate-900 via-yellow-950/40 to-slate-950 p-12 shadow-[0_0_50px_rgba(250,204,21,0.25)]">
+        </div>
+      ) : (
+        <RapidCardStage rf={rf}>
+          {!rf.started ? (
+            <>
+              <p className="text-4xl font-bold uppercase tracking-widest text-yellow-300">
+                Get Ready!
+              </p>
+              <p className="mt-4 text-5xl font-black text-white">
+                {rf.teamName}, you&apos;re up
+              </p>
+            </>
+          ) : (
             <p className="max-w-5xl text-6xl font-black leading-tight text-white drop-shadow-lg">
               {rf.question}
             </p>
-          </div>
-        )}
-      </div>
+          )}
+        </RapidCardStage>
+      )}
 
       {live.timer?.endsAt != null && !rf.finished && rf.started && (
-        <div className="flex justify-center pb-4">
+        <div className="relative z-10 flex justify-center pb-4">
           <CountdownTimer
             endsAt={live.timer.endsAt}
             durationSeconds={live.timer.durationSeconds}

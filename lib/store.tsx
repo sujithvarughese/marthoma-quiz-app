@@ -1474,6 +1474,19 @@ function roundsSummaryOf(content: GameContent, session: SessionState): LiveRound
   return rounds;
 }
 
+/** The lettered Rapid Fire group tiles, with which ones are already dealt. */
+function rapidBoardTiles(state: HostState) {
+  const { session, content } = state;
+  if (!session || !content) return [];
+  const usedIds = new Set(session.usedQuestionIds);
+  return rapidFireGroups(content).map((g) => ({
+    key: g.key,
+    label: g.label,
+    used:
+      g.questionIds.length > 0 && g.questionIds.every((id) => usedIds.has(id)),
+  }));
+}
+
 export function buildLive(state: HostState): LiveDisplay | null {
   const { session, content } = state;
   if (!session || !content) return null;
@@ -1745,22 +1758,16 @@ export function buildLive(state: HostState): LiveDisplay | null {
         if (!upNextId) {
           return { ...base, screen: "scoreboard", message: "Rapid Fire", timer: IDLE_TIMER };
         }
-        const usedIds = new Set(session.usedQuestionIds);
+        const upNextName =
+          session.teams.find((t) => t.id === upNextId)?.name ?? null;
         return {
           ...base,
           screen: "rapid_board",
           activeTeamId: upNextId,
-          activeTeamName:
-            session.teams.find((t) => t.id === upNextId)?.name ?? null,
+          activeTeamName: upNextName,
           rapidBoard: {
-            teamName: session.teams.find((t) => t.id === upNextId)?.name ?? null,
-            tiles: rapidFireGroups(content).map((g) => ({
-              key: g.key,
-              label: g.label,
-              used:
-                g.questionIds.length > 0 &&
-                g.questionIds.every((id) => usedIds.has(id)),
-            })),
+            teamName: upNextName,
+            tiles: rapidBoardTiles(state),
           },
           timer: IDLE_TIMER,
         };
@@ -1783,6 +1790,11 @@ export function buildLive(state: HostState): LiveDisplay | null {
             rf.finished || !rf.started ? null : cur?.question ?? null,
           finished: rf.finished,
           started: rf.started,
+          groupKey:
+            rapidFireGroups(content).find((g) =>
+              g.questionIds.includes(rf.questionIds[0] ?? ""),
+            )?.key ?? null,
+          groups: rapidBoardTiles(state),
         },
       };
     }
