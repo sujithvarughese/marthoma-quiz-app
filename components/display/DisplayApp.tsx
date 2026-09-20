@@ -288,6 +288,8 @@ function Screen({
       return <QuestionScreen live={live} />;
     case "answer":
       return <AnswerScreen live={live} />;
+    case "rapid_board":
+      return <RapidBoardScreen live={live} />;
     case "rapid_fire":
       return <RapidFireScreen live={live} />;
     case "rapid_review":
@@ -1041,6 +1043,52 @@ function AnswerScreen({ live }: { live: LiveDisplay }) {
             {live.answer}
           </p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Rapid Fire group-selection board — lettered tiles the team picks from */
+function RapidBoardScreen({ live }: { live: LiveDisplay }) {
+  const rb = live.rapidBoard;
+  if (!rb) return <WelcomeScreen live={live} />;
+  const remaining = rb.tiles.filter((t) => !t.used).length;
+
+  return (
+    <div className="relative flex flex-1 flex-col justify-between p-10 pb-6">
+      <header className="flex flex-wrap items-end justify-between gap-6">
+        <div>
+          <h1 className="text-6xl font-black tracking-tight text-yellow-300 drop-shadow-[0_0_25px_rgba(253,224,71,0.4)]">
+            ⚡ Rapid Fire
+          </h1>
+          {rb.teamName && (
+            <p className="mt-2 text-3xl font-semibold text-slate-300">
+              Up next:{" "}
+              <span className="font-black text-emerald-300">{rb.teamName}</span>
+            </p>
+          )}
+        </div>
+        <span className="text-2xl font-bold uppercase tracking-wider text-indigo-300">
+          {remaining} of {rb.tiles.length} groups remaining
+        </span>
+      </header>
+
+      <div className="mx-auto my-auto grid min-h-0 w-full max-w-[1500px] flex-1 grid-cols-2 content-center gap-8 py-8 sm:grid-cols-4">
+        {rb.tiles.map((tile, i) => (
+          <div
+            key={tile.key}
+            style={{ animationDelay: `${i * 50}ms` }}
+            className={`animate-board-cascade relative flex aspect-square items-center justify-center rounded-3xl select-none ${
+              tile.used
+                ? "border border-white/5 bg-white/5 text-white/20"
+                : "bg-gradient-to-br from-amber-400 to-yellow-600 text-white shadow-[0_10px_35px_rgba(250,204,21,0.35)]"
+            }`}
+          >
+            <span className="text-8xl font-black leading-none drop-shadow-[0_4px_16px_rgba(0,0,0,0.5)]">
+              {tile.used ? "✓" : tile.label}
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -20,6 +20,7 @@ export type DisplayScreen =
   | "board"
   | "question"
   | "answer"
+  | "rapid_board"
   | "rapid_fire"
   | "rapid_review"
   | "winner"
@@ -73,6 +74,16 @@ export interface LiveRapidFire {
   /** True once the host has started the timer; before that, the audience
    * sees a "get ready" screen instead of the first question. */
   started: boolean;
+}
+
+/**
+ * The lettered group-selection board shown between rapid-fire turns, while
+ * the host is picking which group of questions the up-next team will get.
+ */
+export interface LiveRapidBoard {
+  /** Team whose turn it is to pick, or null if none. */
+  teamName: string | null;
+  tiles: { key: string; label: string; used: boolean }[];
 }
 
 /** One row of the family-feud-style rapid-fire review board. */
@@ -144,6 +155,8 @@ export interface LiveDisplay {
   board: LiveBoardTile[] | null;
   /** Scores for scoreboard/winner screens (null elsewhere). */
   scores: LiveScore[] | null;
+  /** Group-selection tiles for the "rapid_board" screen (null elsewhere). */
+  rapidBoard?: LiveRapidBoard | null;
   /** Rapid-fire block for the "rapid_fire" screen (null elsewhere). */
   rapidFire: LiveRapidFire | null;
   /** Rapid-fire review board for the "rapid_review" screen (null elsewhere). */
@@ -208,6 +221,7 @@ export function isDisplayScreen(v: unknown): v is DisplayScreen {
     v === "board" ||
     v === "question" ||
     v === "answer" ||
+    v === "rapid_board" ||
     v === "rapid_fire" ||
     v === "rapid_review" ||
     v === "winner" ||

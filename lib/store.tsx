@@ -1738,7 +1738,32 @@ export function buildLive(state: HostState): LiveDisplay | null {
       }
       const rf = state.rapid;
       if (!rf) {
-        return { ...base, screen: "scoreboard", message: "Rapid Fire", timer: IDLE_TIMER };
+        // Between turns: show the lettered group tiles while the host picks
+        // one for the up-next team. Once every team has played (empty
+        // queue) there's nothing left to pick, so fall back to standings.
+        const upNextId = session.rapidQueue?.[0] ?? null;
+        if (!upNextId) {
+          return { ...base, screen: "scoreboard", message: "Rapid Fire", timer: IDLE_TIMER };
+        }
+        const usedIds = new Set(session.usedQuestionIds);
+        return {
+          ...base,
+          screen: "rapid_board",
+          activeTeamId: upNextId,
+          activeTeamName:
+            session.teams.find((t) => t.id === upNextId)?.name ?? null,
+          rapidBoard: {
+            teamName: session.teams.find((t) => t.id === upNextId)?.name ?? null,
+            tiles: rapidFireGroups(content).map((g) => ({
+              key: g.key,
+              label: g.label,
+              used:
+                g.questionIds.length > 0 &&
+                g.questionIds.every((id) => usedIds.has(id)),
+            })),
+          },
+          timer: IDLE_TIMER,
+        };
       }
       const team2 = session.teams.find((t) => t.id === rf.teamId);
       const cur = getQuestion(state, rf.questionIds[rf.currentIndex] ?? null);
