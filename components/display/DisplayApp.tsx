@@ -529,7 +529,7 @@ function RoundsScreen({ live }: { live: LiveDisplay }) {
                   )}
                 </div>
                 <h2
-                  className={`line-clamp-1 text-lg font-black leading-tight drop-shadow-md sm:line-clamp-2 sm:text-2xl lg:text-4xl ${
+                  className={`line-clamp-1 text-base font-black leading-tight drop-shadow-md sm:line-clamp-2 sm:text-xl lg:text-3xl ${
                     isRapidFire ? "text-slate-950" : "text-white"
                   }`}
                 >
