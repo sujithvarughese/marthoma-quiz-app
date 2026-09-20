@@ -29,7 +29,7 @@ export function HomeScreen() {
   ).length;
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div>
       <h2 className="mb-5 text-3xl font-black tracking-tight">Choose a round</h2>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {content.rounds.map((round, i) => {

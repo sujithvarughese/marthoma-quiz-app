@@ -26,7 +26,7 @@ export function RapidFireBoard() {
   const team = session.teams.find((t) => t.id === teamId) ?? null;
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="text-4xl font-black tracking-tight text-yellow-300 sm:text-5xl">

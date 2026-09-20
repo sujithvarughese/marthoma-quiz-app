@@ -90,7 +90,7 @@ export function Scoreboard() {
 
   return (
     <footer className="relative z-30 shrink-0 border-t-2 border-white/10 bg-gradient-to-b from-slate-950/80 to-slate-950/95 px-6 py-5 shadow-[0_-15px_40px_rgba(0,0,0,0.6)] backdrop-blur-xl">
-      <div className="mx-auto flex flex-nowrap items-center justify-center gap-3 overflow-x-auto py-2">
+      <div className="mx-auto flex flex-wrap items-center justify-center gap-3 py-2">
         {teams.map((team, idx) => {
           const isActive = currentActiveTeam?.id === team.id;
           const isLeader = team.score > 0 && team.score === maxScore;

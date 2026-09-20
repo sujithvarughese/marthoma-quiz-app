@@ -13,6 +13,7 @@ import {
 } from "react";
 import {
   rapidFireGroups,
+  rapidFireQuestions,
   type GameContent,
   type QuestionDoc,
   type RoundDoc,
@@ -1098,7 +1099,7 @@ function scoresOf(session: SessionState): LiveScore[] {
 
 function roundsSummaryOf(content: GameContent, session: SessionState): LiveRoundSummary[] {
   const used = new Set(session.usedQuestionIds);
-  return content.rounds.map((r) => ({
+  const rounds = content.rounds.map((r) => ({
     id: r.id,
     order: r.order,
     name: r.name,
@@ -1107,6 +1108,22 @@ function roundsSummaryOf(content: GameContent, session: SessionState): LiveRound
     totalQuestions: r.questionIds.length,
     remainingQuestions: r.questionIds.filter((id) => !used.has(id)).length,
   }));
+
+  // Rapid Fire isn't a RoundDoc (it's a separate question pool, dealt out in
+  // lettered groups rather than picked off a board) — append a synthetic
+  // entry so the "What's Ahead" screen still lists it as part of the lineup.
+  const rapidFire = rapidFireQuestions(content);
+  rounds.push({
+    id: "rapid-fire",
+    order: rounds.length + 1,
+    name: "Rapid Fire",
+    description: "Lightning round — answer as many as you can before time runs out!",
+    type: "rapid_fire",
+    totalQuestions: rapidFire.length,
+    remainingQuestions: rapidFire.filter((q) => !used.has(q.id)).length,
+  });
+
+  return rounds;
 }
 
 export function buildLive(state: HostState): LiveDisplay | null {

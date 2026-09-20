@@ -22,7 +22,7 @@ export function buildRulesPages(settings: GameSettings): RulesPage[] {
     {
       icon: "🎉",
       eyebrow: "Welcome",
-      title: "How Tonight Works",
+      title: "How Today's Game Works",
       body: [
         "We'll play through seven rounds of trivia — six themed rounds plus a Rapid Fire finale — covering general knowledge, Bible, current affairs, and more.",
         "Team seating is assigned by lottery, so find your spot before we start.",

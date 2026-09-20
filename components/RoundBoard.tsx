@@ -30,7 +30,7 @@ export function RoundBoard() {
     !isPicture && isNextRoundQuestionAudienceTurn(session, round);
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="text-4xl font-black tracking-tight sm:text-5xl">

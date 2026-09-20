@@ -42,8 +42,8 @@ export const rounds: Round[] = [
       {
         id: "ca-2",
         question:
-            "Which two traditionally non-aligned European countries joined NATO following Russia's invasion of Ukraine, becoming its 31st and 32nd members?",
-        answer: "Finland and Sweden",
+            "Following Russia’s invasion of Ukraine, Finland and which other traditionally non-aligned European country joined NATO?",
+        answer: "Sweden",
         funFact:
             "Finland joined NATO in 2023 as its 31st member, followed by Sweden in 2024 as its 32nd member.",
         used: false,
@@ -60,8 +60,8 @@ export const rounds: Round[] = [
       {
         id: "ca-4",
         question:
-            "In February 2023, a magnitude 7.8 earthquake, followed by another major earthquake, caused catastrophic destruction and tens of thousands of deaths in which two countries?",
-        answer: "Turkey and Syria",
+            "In February 2023, a magnitude 7.8 earthquake, followed by another major earthquake, caused catastrophic destruction and tens of thousands of deaths in Syria and which other country",
+        answer: "Turkey",
         funFact:
             "The initial magnitude 7.8 earthquake was followed hours later by another extremely powerful earthquake, devastating communities across southern Turkey and northern Syria.",
         used: false,
@@ -189,7 +189,7 @@ export const rounds: Round[] = [
 
   {
     id: "picture-personalities",
-    order: 3,
+    order: 4,
     name: "Picture Round",
     description:
         "Important Personalities Worldwide • Politics, Science & Technology, Business, Space, Sports, Literature & Arts",
@@ -245,7 +245,7 @@ export const rounds: Round[] = [
 
   {
     id: "life-of-jesus",
-    order: 4,
+    order: 3,
     name: "Bible: Life of Jesus",
     description:
         "Birth & Childhood, Major Events in Jesus' Ministry, Crucifixion & Resurrection",

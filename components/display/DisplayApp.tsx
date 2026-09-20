@@ -398,50 +398,88 @@ function RoundsScreen({ live }: { live: LiveDisplay }) {
         <ActiveBanner live={live} />
       </header>
 
-      {/* Grid of Category Cards (Read-only presentation for projector) */}
-      <div className="my-auto grid grid-cols-1 gap-6 py-6 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Grid of Category Cards (Read-only presentation for projector).
+          Flexbox rather than CSS Grid so a trailing lone card — Rapid Fire,
+          always last — centers itself instead of sticking to the grid's
+          first column with empty tracks beside it. */}
+      <div className="my-auto flex flex-wrap justify-center gap-6 py-6">
         {rounds.map((r, i) => {
+          const isRapidFire = r.type === "rapid_fire";
           const style = CATEGORY_GRADIENTS[i % CATEGORY_GRADIENTS.length];
           const isSelected = live.roundId === r.id;
 
           return (
             <div
               key={r.id}
-              className={`group relative flex flex-col justify-between overflow-hidden rounded-3xl border-2 bg-gradient-to-br ${style.bg} ${style.border} ${style.glow} p-8 text-left shadow-2xl backdrop-blur-xl transition-all duration-500 select-none ${
+              className={`group relative flex w-full shrink-0 grow-0 flex-col justify-between overflow-hidden rounded-3xl border-2 p-8 text-left shadow-2xl backdrop-blur-xl transition-all duration-500 select-none sm:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)] ${
+                isRapidFire
+                  ? "animate-gold-pulse border-amber-300 bg-gradient-to-br from-amber-400 via-yellow-500 to-amber-600"
+                  : `bg-gradient-to-br ${style.bg} ${style.border} ${style.glow}`
+              } ${
                 isSelected
                   ? "animate-category-chosen scale-105 ring-4 ring-amber-400 shadow-[0_0_60px_rgba(251,191,36,0.6)] z-20"
                   : ""
               }`}
             >
-              {/* Category Number watermark */}
-              <span
-                className={`absolute top-4 right-6 font-mono text-7xl font-black select-none ${style.num}`}
-              >
-                0{r.order}
-              </span>
+              {/* Watermark — a bolt for Rapid Fire instead of a round number,
+                  since it isn't picked off a numbered board like the others. */}
+              {isRapidFire ? (
+                <span
+                  className="absolute -right-2 -top-2 text-8xl text-black/10 select-none"
+                  aria-hidden="true"
+                >
+                  ⚡
+                </span>
+              ) : (
+                <span
+                  className={`absolute top-4 right-6 font-mono text-7xl font-black select-none ${style.num}`}
+                >
+                  0{r.order}
+                </span>
+              )}
 
               <div className="relative z-10 flex flex-col gap-3">
                 <span
-                  className={`inline-block w-fit rounded-full border px-4 py-1 text-xs font-black uppercase tracking-wider ${style.tag}`}
+                  className={`inline-block w-fit rounded-full border px-4 py-1 text-xs font-black uppercase tracking-wider ${
+                    isRapidFire
+                      ? "border-slate-950/25 bg-slate-950/15 text-slate-950"
+                      : style.tag
+                  }`}
                 >
-                  {r.type === "picture"
-                    ? "🖼️ Picture Clues"
-                    : r.type === "rapid_fire"
-                      ? "⚡ Rapid Fire"
+                  {isRapidFire
+                    ? "⚡ Special Round"
+                    : r.type === "picture"
+                      ? "🖼️ Picture Clues"
                       : "📖 Standard Round"}
                 </span>
-                <h2 className="text-3xl font-black leading-tight text-white drop-shadow-md">
+                <h2
+                  className={`text-3xl font-black leading-tight drop-shadow-md ${
+                    isRapidFire ? "text-slate-950" : "text-white"
+                  }`}
+                >
                   {r.name}
                 </h2>
                 {r.description && (
-                  <p className="mt-1 text-lg font-medium leading-snug text-slate-200/90">
+                  <p
+                    className={`mt-1 text-lg font-medium leading-snug ${
+                      isRapidFire ? "text-slate-900/80" : "text-slate-200/90"
+                    }`}
+                  >
                     {r.description}
                   </p>
                 )}
               </div>
 
-              <div className="relative z-10 mt-6 flex items-center justify-between border-t border-white/10 pt-4">
-                <span className="text-base font-bold text-slate-300">
+              <div
+                className={`relative z-10 mt-6 flex items-center justify-between border-t pt-4 ${
+                  isRapidFire ? "border-slate-950/20" : "border-white/10"
+                }`}
+              >
+                <span
+                  className={`text-base font-bold ${
+                    isRapidFire ? "text-slate-900" : "text-slate-300"
+                  }`}
+                >
                   {r.remainingQuestions} of {r.totalQuestions} questions left
                 </span>
                 {isSelected && (
@@ -1134,7 +1172,9 @@ function RulesScreen({ live }: { live: LiveDisplay }) {
 
       {rules.showRounds && rounds.length > 0 && (
         <div className="flex max-w-4xl flex-wrap justify-center gap-3">
-          {rounds.map((r, i) => {
+          {rounds
+            .filter((r) => r.type !== "rapid_fire")
+            .map((r, i) => {
             const style = CATEGORY_GRADIENTS[i % CATEGORY_GRADIENTS.length];
             return (
               <span
