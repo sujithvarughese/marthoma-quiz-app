@@ -821,10 +821,8 @@ function BoardScreen({
 // questions instead of ever needing to scroll or clip.
 function questionTextClasses(len: number) {
   if (len <= 90) return "max-w-6xl text-6xl sm:text-7xl";
-  if (len <= 150) return "max-w-6xl text-5xl sm:text-6xl";
-  if (len <= 220) return "max-w-7xl text-4xl sm:text-5xl";
-  if (len <= 320) return "max-w-7xl text-3xl sm:text-4xl";
-  return "max-w-7xl text-2xl sm:text-3xl";
+  if (len <= 320) return "max-w-full text-5xl sm:text-6xl";
+  return "max-w-full text-4xl sm:text-5xl";
 }
 
 function QuestionScreen({ live }: { live: LiveDisplay }) {
@@ -912,7 +910,7 @@ function QuestionScreen({ live }: { live: LiveDisplay }) {
               "--launch-scale": "0.2",
             } as React.CSSProperties
           }
-          className="animate-card-reveal-travel relative w-full max-w-[1500px]"
+          className="animate-card-reveal-travel relative w-full max-w-[1750px]"
         >
           <div className="animate-card-reveal-flip relative grid">
             {/* FRONT FACE — face-down tile, shown before the flip */}
