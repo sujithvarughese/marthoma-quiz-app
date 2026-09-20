@@ -1200,7 +1200,7 @@ function RapidCardStage({
             </div>
 
             {/* BACK FACE — get-ready message, then the questions */}
-            <div className="card-face card-face-back relative flex flex-col items-center justify-center rounded-3xl border-4 border-yellow-400/80 p-12 shadow-[0_0_50px_rgba(250,204,21,0.25)] select-none">
+            <div className="card-face card-face-back relative flex flex-col items-center justify-center rounded-3xl border-4 border-yellow-400/80 bg-gradient-to-br from-[#0f172a] via-[#2a2108] to-[#020617] p-12 shadow-[0_20px_70px_rgba(0,0,0,0.8),0_0_50px_rgba(250,204,21,0.25)] select-none">
               {children}
             </div>
           </div>
@@ -1230,7 +1230,7 @@ function RapidFireScreen({ live }: { live: LiveDisplay }) {
 
       {rf.finished ? (
         <div className="perspective-1500 relative z-10 my-auto flex flex-1 flex-col items-center justify-center p-6 text-center">
-          <div className="rounded-3xl border-4 border-emerald-400/80 bg-emerald-950/80 p-16 shadow-[0_0_60px_rgba(16,185,129,0.4)]">
+          <div className="rounded-3xl border-4 border-emerald-400/80 bg-[#022c22] p-16 shadow-[0_0_60px_rgba(16,185,129,0.4)]">
             <p className="text-4xl font-bold uppercase tracking-widest text-emerald-300">
               Answers Recorded!
             </p>
@@ -1295,12 +1295,12 @@ function RapidReviewScreen({ live }: { live: LiveDisplay }) {
               key={i}
               className={`flex items-center justify-between gap-6 rounded-2xl border-2 px-8 py-5 transition-all duration-500 ${
                 item.status === "correct"
-                  ? "border-emerald-400/70 bg-emerald-950/50"
+                  ? "border-emerald-400/70 bg-[#052e22]"
                   : item.status === "incorrect"
-                    ? "border-rose-400/70 bg-rose-950/50"
+                    ? "border-rose-400/70 bg-[#3b0a1a]"
                     : isCurrent
-                      ? "border-amber-400/80 bg-amber-950/30 shadow-[0_0_30px_rgba(251,191,36,0.25)]"
-                      : "border-white/10 bg-white/5"
+                      ? "border-amber-400/80 bg-[#2a1d05] shadow-[0_0_30px_rgba(251,191,36,0.25)]"
+                      : "border-white/10 bg-[#111827]"
               }`}
             >
               <div className="min-w-0 flex-1">
