@@ -474,7 +474,7 @@ function RoundsScreen({ live }: { live: LiveDisplay }) {
             <div
               key={r.id}
               className={`group relative flex h-full min-h-0 flex-col justify-between overflow-hidden rounded-3xl border-2 p-3 text-left shadow-2xl backdrop-blur-xl transition-all duration-500 select-none sm:p-5 lg:p-8 ${
-                isCenteredTrailer ? "lg:col-start-2" : ""
+                isCenteredTrailer ? "lg:col-start-2 lg:-mx-8" : ""
               } ${
                 isRapidFire
                   ? `${isFocus ? "animate-gold-pulse-focus" : "animate-gold-pulse"} border-amber-300 bg-gradient-to-br from-amber-400 via-yellow-500 to-amber-600`
