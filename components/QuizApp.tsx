@@ -10,6 +10,7 @@ import { RoundBoard } from "./RoundBoard";
 import { QuestionView } from "./QuestionView";
 import { PictureView } from "./PictureView";
 import { RapidFire } from "./RapidFire";
+import { TiebreakerView } from "./TiebreakerView";
 import { ResultsScreen } from "./ResultsScreen";
 import { Scoreboard } from "./Scoreboard";
 import { RulesGuide } from "./RulesGuide";
@@ -66,6 +67,7 @@ export function HostShell({ readOnly = false }: { readOnly?: boolean }) {
         {view === "question" && <QuestionView />}
         {view === "picture" && <PictureView />}
         {view === "rapidfire" && <RapidFire />}
+        {view === "tiebreaker" && <TiebreakerView />}
         {view === "scoreboard" && <ResultsScreen />}
         {view === "winner" && <ResultsScreen winner />}
       </main>

@@ -1,7 +1,7 @@
 "use client";
 
-import { useDispatch, useGame } from "@/lib/store";
-import { rapidFireQuestions } from "@/lib/content";
+import { tiedForFirst, useDispatch, useGame } from "@/lib/store";
+import { rapidFireQuestions, tiebreakerQuestions } from "@/lib/content";
 
 // Accent colours cycle through the rounds for quick visual distinction.
 export const ROUND_ACCENTS = [
@@ -14,8 +14,8 @@ export const ROUND_ACCENTS = [
 ];
 
 /**
- * The in-game hub: pick a round or rapid fire, or jump to the scoreboard /
- * final results.
+ * The in-game hub: pick a round, rapid fire, the sudden-death tiebreaker
+ * (once teams are tied for 1st), or jump straight to final results.
  */
 export function HomeScreen() {
   const state = useGame();
@@ -27,6 +27,15 @@ export function HomeScreen() {
   const rapidRemaining = rapidFireQuestions(content).filter(
     (q) => !used.has(q.id),
   ).length;
+
+  const tiebreakerActive = session.tiebreaker !== null;
+  const tied = tiedForFirst(session.teams);
+  const topScore = tied[0]?.score ?? 0;
+  const tiebreakerRemaining = tiebreakerQuestions(content).filter(
+    (q) => !used.has(q.id),
+  ).length;
+  const canTiebreaker =
+    tiebreakerActive || (tied.length >= 2 && tiebreakerRemaining > 0);
 
   return (
     <div>
@@ -87,13 +96,22 @@ export function HomeScreen() {
         </button>
 
         <button
-          onClick={() => dispatch({ type: "SHOW_SCOREBOARD" })}
-          className="flex flex-col justify-between rounded-3xl border-2 border-sky-400/60 bg-sky-400/10 p-6 text-left shadow-xl transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/50"
+          onClick={() => dispatch({ type: "ENTER_TIEBREAKER" })}
+          disabled={!canTiebreaker}
+          className={`flex flex-col justify-between rounded-3xl border-2 border-rose-400/60 bg-rose-400/10 p-6 text-left shadow-xl transition-transform focus:outline-none focus-visible:ring-4 focus-visible:ring-white/50 ${
+            canTiebreaker ? "hover:scale-[1.02]" : "cursor-not-allowed opacity-50"
+          }`}
         >
-          <span className="text-4xl">📊</span>
-          <h3 className="mt-3 text-2xl font-black text-sky-300">Scoreboard</h3>
-          <p className="mt-1 text-sm font-semibold uppercase tracking-wide text-sky-200/70">
-            Show standings on the projector
+          <span className="text-4xl">🎯</span>
+          <h3 className="mt-3 text-2xl font-black text-rose-300">
+            {tiebreakerActive ? "Resume Tiebreaker" : "Tiebreaker"}
+          </h3>
+          <p className="mt-1 text-sm font-semibold uppercase tracking-wide text-rose-200/70">
+            {tiebreakerActive
+              ? "Sudden-death round in progress"
+              : tied.length >= 2
+                ? `${tied.length} teams tied at ${topScore} pts`
+                : "No tie for 1st place"}
           </p>
         </button>
 

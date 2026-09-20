@@ -18,42 +18,42 @@ const CATEGORY_GRADIENTS = [
     border: "border-indigo-400/40",
     glow: "shadow-[0_0_35px_rgba(99,102,241,0.25)]",
     tag: "bg-indigo-500/30 text-indigo-200 border-indigo-400/30",
-    num: "text-indigo-400/30",
+    num: "text-indigo-300/70",
   },
   {
     bg: "from-emerald-900/90 via-emerald-700/80 to-teal-950/90",
     border: "border-emerald-400/40",
     glow: "shadow-[0_0_35px_rgba(16,185,129,0.25)]",
     tag: "bg-emerald-500/30 text-emerald-200 border-emerald-400/30",
-    num: "text-emerald-400/30",
+    num: "text-emerald-300/70",
   },
   {
     bg: "from-purple-900/90 via-purple-700/80 to-slate-950/90",
     border: "border-purple-400/40",
     glow: "shadow-[0_0_35px_rgba(168,85,247,0.25)]",
     tag: "bg-purple-500/30 text-purple-200 border-purple-400/30",
-    num: "text-purple-400/30",
+    num: "text-purple-300/70",
   },
   {
     bg: "from-sky-900/90 via-cyan-700/80 to-blue-950/90",
     border: "border-sky-400/40",
     glow: "shadow-[0_0_35px_rgba(56,189,248,0.25)]",
     tag: "bg-sky-500/30 text-sky-200 border-sky-400/30",
-    num: "text-sky-400/30",
+    num: "text-sky-300/70",
   },
   {
     bg: "from-amber-900/90 via-amber-700/80 to-orange-950/90",
     border: "border-amber-400/40",
     glow: "shadow-[0_0_35px_rgba(245,158,11,0.25)]",
     tag: "bg-amber-500/30 text-amber-200 border-amber-400/30",
-    num: "text-amber-400/30",
+    num: "text-amber-300/70",
   },
   {
     bg: "from-rose-900/90 via-rose-700/80 to-pink-950/90",
     border: "border-rose-400/40",
     glow: "shadow-[0_0_35px_rgba(244,63,94,0.25)]",
     tag: "bg-rose-500/30 text-rose-200 border-rose-400/30",
-    num: "text-rose-400/30",
+    num: "text-rose-300/70",
   },
 ];
 
@@ -384,14 +384,19 @@ function WelcomeScreen({ live }: { live: LiveDisplay }) {
 function RoundsScreen({ live }: { live: LiveDisplay }) {
   const rounds = live.rounds ?? [];
 
+  // Only 3 columns (lg) ever leaves a remainder — a single trailing card
+  // (Rapid Fire, always last) — so centering only needs to handle that case.
+  const lgCols = 3;
+  const trailingCount = rounds.length % lgCols;
+
   return (
-    <div className="relative flex flex-1 flex-col justify-between p-10 pb-6">
-      <header className="flex flex-wrap items-center justify-between gap-6">
+    <div className="relative flex min-h-0 flex-1 flex-col justify-between p-8 pb-4">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="inline-block rounded-lg border border-indigo-400/40 bg-indigo-500/20 px-4 py-1.5 text-lg font-black uppercase tracking-widest text-indigo-300">
             Game Categories
           </div>
-          <h1 className="mt-2 text-6xl font-black tracking-tight text-white drop-shadow-lg">
+          <h1 className="mt-2 text-5xl font-black tracking-tight text-white drop-shadow-lg">
             What&apos;s Ahead
           </h1>
         </div>
@@ -399,19 +404,26 @@ function RoundsScreen({ live }: { live: LiveDisplay }) {
       </header>
 
       {/* Grid of Category Cards (Read-only presentation for projector).
-          Flexbox rather than CSS Grid so a trailing lone card — Rapid Fire,
-          always last — centers itself instead of sticking to the grid's
-          first column with empty tracks beside it. */}
-      <div className="my-auto flex flex-wrap justify-center gap-6 py-6">
+          CSS Grid with auto-rows-fr so every row shares the remaining
+          height equally — the grid always fills exactly the space left
+          after the header/dock, so the page never needs to scroll no
+          matter how many rounds there are. A trailing lone card (Rapid
+          Fire, always last) is nudged into the middle column to center it
+          instead of sticking to the grid's first column. */}
+      <div className="my-auto grid min-h-0 flex-1 auto-rows-fr grid-cols-1 gap-4 py-4 sm:grid-cols-2 lg:grid-cols-3">
         {rounds.map((r, i) => {
           const isRapidFire = r.type === "rapid_fire";
           const style = CATEGORY_GRADIENTS[i % CATEGORY_GRADIENTS.length];
           const isSelected = live.roundId === r.id;
+          const isCenteredTrailer =
+            trailingCount === 1 && i === rounds.length - 1;
 
           return (
             <div
               key={r.id}
-              className={`group relative flex w-full shrink-0 grow-0 flex-col justify-between overflow-hidden rounded-3xl border-2 p-8 text-left shadow-2xl backdrop-blur-xl transition-all duration-500 select-none sm:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)] ${
+              className={`group relative flex h-full min-h-0 flex-col justify-between overflow-hidden rounded-3xl border-2 p-6 text-left shadow-2xl backdrop-blur-xl transition-all duration-500 select-none ${
+                isCenteredTrailer ? "lg:col-start-2" : ""
+              } ${
                 isRapidFire
                   ? "animate-gold-pulse border-amber-300 bg-gradient-to-br from-amber-400 via-yellow-500 to-amber-600"
                   : `bg-gradient-to-br ${style.bg} ${style.border} ${style.glow}`
@@ -438,7 +450,7 @@ function RoundsScreen({ live }: { live: LiveDisplay }) {
                 </span>
               )}
 
-              <div className="relative z-10 flex flex-col gap-3">
+              <div className="relative z-10 flex min-h-0 flex-col gap-2 overflow-hidden">
                 <span
                   className={`inline-block w-fit rounded-full border px-4 py-1 text-xs font-black uppercase tracking-wider ${
                     isRapidFire
@@ -453,7 +465,7 @@ function RoundsScreen({ live }: { live: LiveDisplay }) {
                       : "📖 Standard Round"}
                 </span>
                 <h2
-                  className={`text-3xl font-black leading-tight drop-shadow-md ${
+                  className={`line-clamp-2 text-3xl font-black leading-tight drop-shadow-md ${
                     isRapidFire ? "text-slate-950" : "text-white"
                   }`}
                 >
@@ -461,7 +473,7 @@ function RoundsScreen({ live }: { live: LiveDisplay }) {
                 </h2>
                 {r.description && (
                   <p
-                    className={`mt-1 text-lg font-medium leading-snug ${
+                    className={`line-clamp-2 text-base font-medium leading-snug ${
                       isRapidFire ? "text-slate-900/80" : "text-slate-200/90"
                     }`}
                   >
@@ -471,7 +483,7 @@ function RoundsScreen({ live }: { live: LiveDisplay }) {
               </div>
 
               <div
-                className={`relative z-10 mt-6 flex items-center justify-between border-t pt-4 ${
+                className={`relative z-10 flex shrink-0 items-center justify-between border-t pt-3 ${
                   isRapidFire ? "border-slate-950/20" : "border-white/10"
                 }`}
               >
@@ -529,6 +541,14 @@ const TIER_STYLES = [
   "border-orange-700/60 bg-gradient-to-r from-orange-950/50 via-orange-900/30 to-slate-900/80 shadow-[0_0_25px_rgba(194,120,3,0.2)]",
 ];
 
+// Row sizing shrinks as the team count grows so any realistic roster still
+// fits the 1200px projector height without the page needing to scroll.
+function scoreRowSizing(count: number) {
+  if (count <= 6) return { gap: "gap-5", pad: "px-10 py-7", name: "text-4xl", score: "text-6xl" };
+  if (count <= 9) return { gap: "gap-3", pad: "px-8 py-4", name: "text-3xl", score: "text-5xl" };
+  return { gap: "gap-2", pad: "px-6 py-2", name: "text-2xl", score: "text-4xl" };
+}
+
 function ScoreTable({
   scores,
   activeTeamId,
@@ -537,9 +557,10 @@ function ScoreTable({
   activeTeamId?: string | null;
 }) {
   const maxScore = Math.max(0, ...scores.map((s) => s.score));
+  const sizing = scoreRowSizing(scores.length);
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+    <div className={`mx-auto flex w-full max-w-5xl flex-col ${sizing.gap}`}>
       {scores.map((t, i) => {
         const isActive = activeTeamId === t.id;
         const tier = i < 3 && t.score > 0 ? i : null;
@@ -549,7 +570,7 @@ function ScoreTable({
           <div
             key={t.id}
             style={{ animationDelay: `${i * 90}ms` }}
-            className={`animate-board-cascade relative flex items-center justify-between gap-8 overflow-hidden rounded-3xl border-2 px-10 py-7 transition-all ${
+            className={`animate-board-cascade relative flex items-center justify-between gap-8 overflow-hidden rounded-3xl border-2 ${sizing.pad} transition-all ${
               isActive
                 ? "border-emerald-400/70 bg-gradient-to-r from-emerald-950/60 to-slate-900/80 shadow-[0_0_30px_rgba(16,185,129,0.25)]"
                 : tier !== null
@@ -589,11 +610,15 @@ function ScoreTable({
                   {MEDALS[tier]}
                 </span>
               )}
-              <span className="text-4xl font-extrabold tracking-wide text-white drop-shadow">
+              <span
+                className={`font-extrabold tracking-wide text-white drop-shadow ${sizing.name}`}
+              >
                 {t.name}
               </span>
             </div>
-            <span className="relative z-10 font-mono text-6xl font-black tabular-nums text-white">
+            <span
+              className={`relative z-10 font-mono font-black tabular-nums text-white ${sizing.score}`}
+            >
               {t.score}
             </span>
           </div>
@@ -683,9 +708,12 @@ function BoardScreen({
 
       {/* Grid of Jeopardy Numbered Cards — the Picture Round always has
           exactly 5 questions, so it gets one unbroken row instead of
-          wrapping 4+1 like the 8-question standard rounds. */}
+          wrapping 4+1 like the 8-question standard rounds. Capped to
+          max-w so tiles (aspect-square, sized off column width) can't grow
+          tall enough on a 1920px-wide projector to push the two-row
+          standard layout past the 1200px viewport height. */}
       <div
-        className={`my-auto grid flex-1 content-center gap-8 py-8 ${
+        className={`mx-auto my-auto grid min-h-0 w-full max-w-[1500px] flex-1 content-center gap-8 py-8 ${
           tiles.length === 5 ? "grid-cols-5" : "grid-cols-2 sm:grid-cols-4"
         }`}
       >
@@ -720,9 +748,23 @@ function BoardScreen({
 }
 
 /** Jeopardy Style 3D Card Fold-Out Question Screen Starting from the Number Tile */
+// Question length varies a lot (some are short, some are long bilingual
+// Bible questions with an English + Malayalam translation) — the projector
+// is a fixed 1920x1200, so text and timer size must shrink for long
+// questions instead of ever needing to scroll or clip.
+function questionTextClasses(len: number) {
+  if (len <= 90) return "max-w-5xl text-5xl sm:text-6xl";
+  if (len <= 150) return "max-w-5xl text-4xl sm:text-5xl";
+  if (len <= 220) return "max-w-6xl text-3xl sm:text-4xl";
+  if (len <= 320) return "max-w-6xl text-2xl sm:text-3xl";
+  return "max-w-7xl text-xl sm:text-2xl";
+}
+
 function QuestionScreen({ live }: { live: LiveDisplay }) {
   const tiles = live.board ?? [];
   const questionNum = live.questionNumber ?? 1;
+  const questionLen = live.question?.length ?? 0;
+  const isLongQuestion = questionLen > 150;
   const cols = 4;
   const tileIndex = Math.max(0, Math.min(tiles.length - 1, questionNum - 1));
   const colIndex = tileIndex % cols; // 0, 1, 2, 3
@@ -838,15 +880,20 @@ function QuestionScreen({ live }: { live: LiveDisplay }) {
                 </div>
               )}
 
-              <p className="relative z-10 max-w-5xl text-5xl font-extrabold leading-snug tracking-wide text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.9)] sm:text-6xl">
+              <p
+                className={`relative z-10 font-extrabold leading-snug tracking-wide text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.9)] ${questionTextClasses(questionLen)}`}
+              >
                 {live.question}
               </p>
 
               {live.timer?.endsAt != null && (
-                <div className="relative z-10 mt-10">
+                <div
+                  className={`relative z-10 ${isLongQuestion ? "mt-5" : "mt-10"}`}
+                >
                   <CountdownTimer
                     endsAt={live.timer.endsAt}
                     durationSeconds={live.timer.durationSeconds}
+                    size={isLongQuestion ? "md" : "lg"}
                   />
                 </div>
               )}
@@ -858,10 +905,29 @@ function QuestionScreen({ live }: { live: LiveDisplay }) {
   );
 }
 
+// Secondary/faded question recap on the answer-reveal screen — same long
+// bilingual questions as QuestionScreen, but scaled down since it's no
+// longer the star of the screen (the answer box is).
+function answerRecapClasses(len: number) {
+  if (len <= 150) return "max-w-5xl text-3xl sm:text-4xl";
+  if (len <= 300) return "max-w-6xl text-2xl sm:text-3xl";
+  return "max-w-6xl text-xl sm:text-2xl";
+}
+
+function answerTextClasses(len: number) {
+  if (len <= 40) return "text-6xl sm:text-7xl";
+  if (len <= 70) return "text-5xl sm:text-6xl";
+  return "text-4xl sm:text-5xl";
+}
+
 /** Correct Answer Revealed Screen */
 function AnswerScreen({ live }: { live: LiveDisplay }) {
+  const questionLen = live.question?.length ?? 0;
+  const answerLen = live.answer?.length ?? 0;
+  const isLongQuestion = questionLen > 150;
+
   return (
-    <div className="flex flex-1 flex-col justify-between p-10 pb-6">
+    <div className="flex min-h-0 flex-1 flex-col justify-between p-10 pb-6">
       <header className="flex flex-wrap items-center justify-between gap-6">
         <div className="flex items-center gap-4">
           {live.roundName && (
@@ -878,27 +944,35 @@ function AnswerScreen({ live }: { live: LiveDisplay }) {
         <ActiveBanner live={live} />
       </header>
 
-      <div className="perspective-1500 my-auto flex flex-1 flex-col items-center justify-center gap-8 py-6">
+      <div
+        className={`perspective-1500 my-auto flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden py-6 ${isLongQuestion ? "gap-4" : "gap-8"}`}
+      >
         {live.imageUrl && (
           <div className="overflow-hidden rounded-2xl border-2 border-slate-600 shadow-2xl">
             <img
               src={live.imageUrl}
               alt=""
-              className="max-h-[30vh] w-auto object-contain"
+              className="max-h-[28vh] w-auto object-contain"
             />
           </div>
         )}
 
-        <p className="max-w-5xl text-center text-4xl font-semibold text-slate-300 drop-shadow">
+        <p
+          className={`text-center font-semibold text-slate-300 drop-shadow ${answerRecapClasses(questionLen)}`}
+        >
           {live.question}
         </p>
 
         {/* 3D Animated Emerald Answer Box */}
-        <div className="animate-answer-reveal w-full max-w-5xl rounded-3xl border-4 border-emerald-400/90 bg-gradient-to-br from-emerald-950/90 via-emerald-900/80 to-teal-950/90 p-10 text-center shadow-[0_20px_60px_rgba(0,0,0,0.8),0_0_60px_rgba(16,185,129,0.4)]">
+        <div
+          className={`animate-answer-reveal w-full max-w-5xl rounded-3xl border-4 border-emerald-400/90 bg-gradient-to-br from-emerald-950/90 via-emerald-900/80 to-teal-950/90 text-center shadow-[0_20px_60px_rgba(0,0,0,0.8),0_0_60px_rgba(16,185,129,0.4)] ${isLongQuestion ? "p-6" : "p-10"}`}
+        >
           <p className="text-2xl font-black uppercase tracking-widest text-emerald-300">
             ✓ Correct Answer
           </p>
-          <p className="mt-4 text-6xl font-black text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.9)] sm:text-7xl">
+          <p
+            className={`mt-4 font-black text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.9)] ${answerTextClasses(answerLen)}`}
+          >
             {live.answer}
           </p>
         </div>

@@ -29,11 +29,13 @@ export interface GameSettings {
   stealPoints: number; // another team steals a missed question
   picturePoints: number; // per correct team in the picture round
   rapidFirePoints: number; // each rapid-fire question answered correctly
+  tiebreakerPoints: number; // per correct team in the sudden-death tiebreaker
 
   normalAnswerSeconds: number;
   stealAnswerSeconds: number;
   pictureAnswerSeconds: number;
   rapidFireSeconds: number;
+  tiebreakerSeconds: number;
 
   rapidFireQuestionCount: number;
 
@@ -67,17 +69,30 @@ export const DEFAULT_SETTINGS: GameSettings = {
   stealPoints: 5,
   picturePoints: 5,
   rapidFirePoints: 5,
+  tiebreakerPoints: 10,
 
   normalAnswerSeconds: 60,
   stealAnswerSeconds: 20,
   pictureAnswerSeconds: 60,
   rapidFireSeconds: 60,
+  tiebreakerSeconds: 60,
 
   rapidFireQuestionCount: 5,
 
   allowSteals: true,
   rotateStartingTeam: true,
 };
+
+/**
+ * Sudden-death tiebreaker: only exists once teams tied for 1st place start
+ * playing it off. `teamIds` is locked in when it starts and never narrows —
+ * the host works through /data/tiebreaker.ts one question at a time (see
+ * `currentQuestionId` on SessionState) until exactly one of these teams is
+ * marked correct and the rest are wrong.
+ */
+export interface TiebreakerState {
+  teamIds: string[];
+}
 
 /** The full game document + teams, as loaded/saved together. */
 export interface SessionState {
@@ -105,6 +120,9 @@ export interface SessionState {
   /** Rapid-fire: the active grading pass, or null before review starts. */
   rapidReview: RapidFireReview | null;
 
+  /** Sudden-death tiebreaker in progress, or null. See TiebreakerState. */
+  tiebreaker: TiebreakerState | null;
+
   settings: GameSettings;
 }
 
@@ -121,6 +139,7 @@ export interface GameDoc {
   rapidQueue: string[] | null;
   rapidCompleted: RapidFireResult[];
   rapidReview: RapidFireReview | null;
+  tiebreaker: TiebreakerState | null;
   settings: GameSettings;
 }
 
@@ -180,6 +199,14 @@ function isRapidFireReview(v: unknown): v is RapidFireReview {
   );
 }
 
+function isTiebreakerState(v: unknown): v is TiebreakerState {
+  if (typeof v !== "object" || v === null) return false;
+  const t = v as Record<string, unknown>;
+  return (
+    Array.isArray(t.teamIds) && t.teamIds.every((id) => typeof id === "string")
+  );
+}
+
 export function isGameDoc(v: unknown): v is GameDoc {
   if (typeof v !== "object" || v === null) return false;
   const g = v as Record<string, unknown>;
@@ -202,6 +229,9 @@ export function isGameDoc(v: unknown): v is GameDoc {
     Array.isArray(g.rapidCompleted) &&
     g.rapidCompleted.every(isRapidFireResult) &&
     (g.rapidReview === null || isRapidFireReview(g.rapidReview)) &&
+    (g.tiebreaker === null ||
+      g.tiebreaker === undefined ||
+      isTiebreakerState(g.tiebreaker)) &&
     typeof g.settings === "object" &&
     g.settings !== null
   );

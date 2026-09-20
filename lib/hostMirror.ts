@@ -18,6 +18,7 @@ export type HostMirrorView =
   | "question"
   | "picture"
   | "rapidfire"
+  | "tiebreaker"
   | "scoreboard"
   | "winner";
 
@@ -49,6 +50,7 @@ export interface HostMirror {
   stealOrder: string[];
   stealIndex: number;
   pictureCorrect: string[];
+  tiebreakerCorrect: string[];
   awarded: boolean;
   lastAward: { teamId: string; amount: number }[] | null;
 
@@ -66,6 +68,7 @@ const VIEWS = new Set<string>([
   "question",
   "picture",
   "rapidfire",
+  "tiebreaker",
   "scoreboard",
   "winner",
 ]);
@@ -116,6 +119,7 @@ export function isHostMirror(v: unknown): v is HostMirror {
     isStringArray(m.stealOrder) &&
     typeof m.stealIndex === "number" &&
     isStringArray(m.pictureCorrect) &&
+    isStringArray(m.tiebreakerCorrect) &&
     typeof m.awarded === "boolean" &&
     (m.rapid === null || isHostMirrorRapid(m.rapid)) &&
     isHostMirrorTimer(m.timer)

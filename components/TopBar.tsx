@@ -15,6 +15,7 @@ export function TopBar() {
   if ((state.view === "board" || state.view === "question" || state.view === "picture") && round)
     context = round.name;
   else if (state.view === "rapidfire") context = "Rapid Fire";
+  else if (state.view === "tiebreaker") context = "Tiebreaker";
   else if (state.view === "scoreboard") context = "Scoreboard";
   else if (state.view === "winner") context = "Final Results";
 

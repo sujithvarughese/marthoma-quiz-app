@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { rounds as roundsSeed } from "@/data/rounds";
 import { rapidFirePool as rapidFireSeed } from "@/data/rapidFire";
+import { tiebreakerPool as tiebreakerSeed } from "@/data/tiebreaker";
 import type { QuestionDoc, RoundDoc, RoundType } from "@/lib/content";
 import { DEFAULT_SETTINGS, type SessionState } from "@/lib/session";
 import { welcomeLive } from "@/lib/live";
@@ -94,6 +95,20 @@ function buildContent(): { rounds: RoundDoc[]; questions: QuestionDoc[] } {
     }
   }
 
+  tiebreakerSeed.forEach((q, i) => {
+    questions.push({
+      id: q.id,
+      roundId: null,
+      category: "Tiebreaker",
+      type: "tiebreaker",
+      order: i + 1,
+      question: q.question,
+      answer: q.answer,
+      imageUrl: q.imageUrl ?? null,
+      funFact: q.funFact ?? "",
+    });
+  });
+
   return { rounds, questions };
 }
 
@@ -117,6 +132,7 @@ function freshSession(): SessionState {
     rapidQueue: null,
     rapidCompleted: [],
     rapidReview: null,
+    tiebreaker: null,
     settings: DEFAULT_SETTINGS,
   };
 }

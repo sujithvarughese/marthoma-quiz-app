@@ -26,7 +26,7 @@ export function buildRulesPages(settings: GameSettings): RulesPage[] {
       body: [
         "We'll play through seven rounds of trivia — six themed rounds plus a Rapid Fire finale — covering general knowledge, Bible, current affairs, and more.",
         "Team seating is assigned by lottery, so find your spot before we start.",
-        "Answer correctly to score points, and keep an eye on the live scoreboard as the night goes on.",
+        "Answer correctly to score points, and keep an eye on the live scoreboard!.",
       ],
       showRounds: true,
     },
@@ -55,8 +55,9 @@ export function buildRulesPages(settings: GameSettings): RulesPage[] {
       title: "Stealing the Points",
       body: [
         "If the team on the clock gets it wrong, the question opens up to a steal.",
-        `Every other team gets a turn — ${settings.stealAnswerSeconds} seconds each — to steal it for +${settings.stealPoints} points.`,
-        "If every team misses, it's opened to the whole audience — no points awarded either way.",
+        `The next team in order gets ${settings.stealAnswerSeconds} seconds to answer. A correct steal is worth +${settings.stealPoints} points.`,
+        "If that team answers incorrectly, the steal passes to the next team in order.",
+        "This continues until a team answers correctly or every team has had one attempt."
       ],
     },
     {
@@ -84,7 +85,8 @@ export function buildRulesPages(settings: GameSettings): RulesPage[] {
       eyebrow: "Scoring",
       title: "Let's Play!",
       body: [
-        "Points add up across every round — the scoreboard is always just a tap away, and there's no penalty for a wrong answer.",
+        "Points add up across every round — and there's no penalty for a wrong answer.",
+        "No Partial Credit: Answers must be complete and fully correct to receive points. No partial points will be awarded for partially correct or incomplete answers.",
         "If the top teams are tied at the end, we'll settle it with sudden-death tiebreaker questions until a winner emerges.",
         "Good luck, and most of all — have fun! 🎉",
       ],

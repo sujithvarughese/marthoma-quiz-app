@@ -13,7 +13,7 @@
  */
 
 /** Round / question kind. Drives host flow and display rendering. */
-export type RoundType = "standard" | "picture" | "rapid_fire";
+export type RoundType = "standard" | "picture" | "rapid_fire" | "tiebreaker";
 
 export interface QuestionDoc {
   id: string;
@@ -38,7 +38,9 @@ export interface RoundDoc {
   description?: string;
   /** Round number shown to the host / audience (1-6). */
   order: number;
-  type: RoundType;
+  /** Rapid Fire and the tiebreaker are separate question pools, not boards
+   * a RoundDoc ever represents — see rapidFireQuestions/tiebreakerQuestions. */
+  type: "standard" | "picture";
   /** Ordered ids of the questions that make up this round's board. */
   questionIds: string[];
 }
@@ -55,6 +57,17 @@ export function rapidFireQuestions(content: GameContent): QuestionDoc[] {
   return Object.values(content.questions).filter(
     (q) => q.type === "rapid_fire",
   );
+}
+
+/**
+ * Convenience: the sudden-death tiebreaker pool (questions with no round),
+ * in authored order. Only used if teams are tied for 1st after Rapid Fire —
+ * see /data/tiebreaker.ts.
+ */
+export function tiebreakerQuestions(content: GameContent): QuestionDoc[] {
+  return Object.values(content.questions)
+    .filter((q) => q.type === "tiebreaker")
+    .sort((a, b) => a.order - b.order);
 }
 
 /** One selectable card on the rapid-fire group board (e.g. "Group A"). */

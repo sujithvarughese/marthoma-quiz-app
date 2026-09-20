@@ -296,8 +296,8 @@ export const rapidFirePool: RapidFireGroup[] = [
       {
         id: "f-4",
         question:
-            "What right did the 19th Amendment to the U.S. Constitution protect from being denied on account of sex?",
-        answer: "The right to vote",
+            "What is the 19th Amendment of the U.S. Constitution?",
+        answer: "Women's right to vote",
         funFact:
             "Ratified in 1920, the 19th Amendment states that the right of U.S. citizens to vote cannot be denied or abridged by the United States or any state on account of sex.",
         used: false,

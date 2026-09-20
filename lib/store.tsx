@@ -14,6 +14,7 @@ import {
 import {
   rapidFireGroups,
   rapidFireQuestions,
+  tiebreakerQuestions,
   type GameContent,
   type QuestionDoc,
   type RoundDoc,
@@ -50,6 +51,7 @@ export type HostView =
   | "question" // standard question flow
   | "picture" // picture / whiteboard flow
   | "rapidfire" // rapid-fire flow
+  | "tiebreaker" // sudden-death tiebreaker flow
   | "scoreboard" // full standings
   | "winner"; // final results
 
@@ -96,6 +98,7 @@ export interface HostState {
   /** Index into stealOrder of the team currently attempting the steal; === stealOrder.length means it's the audience's turn. */
   stealIndex: number;
   pictureCorrect: string[]; // picture round: team ids marked correct
+  tiebreakerCorrect: string[]; // tiebreaker: team ids marked correct this question
   awarded: boolean; // points already awarded for current question
   /** The last points award(s) for the current question, so UNDO_QUESTION can retract them. */
   lastAward: { teamId: string; amount: number }[] | null;
@@ -195,6 +198,19 @@ export function rankedTeams(teams: SessionTeam[]): SessionTeam[] {
   return [...teams].sort((a, b) => b.score - a.score || a.order - b.order);
 }
 
+/**
+ * Teams tied for 1st place with a score above zero — the tiebreaker only
+ * makes sense once at least two teams share the top score. Returns an empty
+ * array otherwise (including the all-zero case before anyone has scored).
+ */
+export function tiedForFirst(teams: SessionTeam[]): SessionTeam[] {
+  if (teams.length === 0) return [];
+  const top = Math.max(...teams.map((t) => t.score));
+  if (top <= 0) return [];
+  const tied = teams.filter((t) => t.score === top);
+  return tied.length >= 2 ? tied : [];
+}
+
 /* ------------------------------------------------------------------ *
  * Actions
  * ------------------------------------------------------------------ */
@@ -244,6 +260,13 @@ export type Action =
   | { type: "RAPID_REVIEW_GRADE"; correct: boolean } // reveals + grades the current question in one step
   | { type: "RAPID_REVIEW_NEXT_TEAM" }
   | { type: "RAPID_REVIEW_DONE" }
+  // sudden-death tiebreaker
+  | { type: "ENTER_TIEBREAKER" } // host picks the Tiebreaker card on Home
+  | { type: "START_TIEBREAKER_TIMER" }
+  | { type: "TOGGLE_TIEBREAKER_TEAM"; teamId: string }
+  | { type: "AWARD_TIEBREAKER" }
+  | { type: "NEXT_TIEBREAKER_QUESTION" } // still tied — deal another question to the same teams
+  | { type: "FINISH_TIEBREAKER" } // resolved (or abandoned) — back to Home
   // scores admin
   | { type: "ADJUST_SCORE"; teamId: string; amount: number }
   // how-to-play guide
@@ -267,6 +290,15 @@ function markUsed(session: SessionState, id: string): string[] {
   return session.usedQuestionIds.includes(id)
     ? session.usedQuestionIds
     : [...session.usedQuestionIds, id];
+}
+
+/** The next not-yet-played question from the tiebreaker pool, in authored order. */
+function nextTiebreakerQuestion(
+  content: GameContent,
+  session: SessionState,
+): QuestionDoc | null {
+  const used = new Set(session.usedQuestionIds);
+  return tiebreakerQuestions(content).find((q) => !used.has(q.id)) ?? null;
 }
 
 function startTimer(seconds: number): HostTimer {
@@ -332,6 +364,7 @@ const CLEARED = {
   stealOrder: [] as string[],
   stealIndex: 0,
   pictureCorrect: [] as string[],
+  tiebreakerCorrect: [] as string[],
   timer: IDLE_TIMER,
   awarded: false,
   lastAward: null,
@@ -353,6 +386,7 @@ function makeInitialState(): HostState {
     stealOrder: [],
     stealIndex: 0,
     pictureCorrect: [],
+    tiebreakerCorrect: [],
     rapid: null,
     timer: IDLE_TIMER,
     awarded: false,
@@ -374,6 +408,7 @@ function reducer(state: HostState, action: Action): HostState {
         rapidQueue: action.session.rapidQueue ?? null,
         rapidCompleted: action.session.rapidCompleted ?? [],
         rapidReview: action.session.rapidReview ?? null,
+        tiebreaker: action.session.tiebreaker ?? null,
         settings: {
           ...DEFAULT_SETTINGS,
           ...(action.session.settings || {}),
@@ -536,6 +571,7 @@ function reducer(state: HostState, action: Action): HostState {
           rapidQueue: null,
           rapidCompleted: [],
           rapidReview: null,
+          tiebreaker: null,
         },
         view: "setup",
         rapid: null,
@@ -744,6 +780,7 @@ function reducer(state: HostState, action: Action): HostState {
           stealing: true,
           stealIndex: state.awarded ? state.stealIndex : state.stealIndex - 1,
           pictureCorrect: [],
+          tiebreakerCorrect: [],
           awarded: false,
           lastAward: null,
           timer: IDLE_TIMER,
@@ -758,6 +795,7 @@ function reducer(state: HostState, action: Action): HostState {
         stealOrder: [],
         stealIndex: 0,
         pictureCorrect: [],
+        tiebreakerCorrect: [],
         awarded: false,
         lastAward: null,
         // Back to the pristine, pre-start state — the host starts the clock again when ready.
@@ -1046,6 +1084,110 @@ function reducer(state: HostState, action: Action): HostState {
         ...CLEARED,
       };
 
+    /* ---- sudden-death tiebreaker ---- */
+    case "ENTER_TIEBREAKER": {
+      if (!state.session || !state.content) return state;
+
+      // Resume an in-progress tiebreaker (e.g. after a trip back to Home)
+      // rather than recomputing the tied teams and dealing a new question.
+      if (state.session.tiebreaker) {
+        return {
+          ...state,
+          ...CLEARED,
+          view: "tiebreaker",
+          activeQuestionId: state.session.currentQuestionId,
+        };
+      }
+
+      const tied = tiedForFirst(state.session.teams);
+      if (tied.length < 2) return state;
+      const q = nextTiebreakerQuestion(state.content, state.session);
+      if (!q) return state;
+
+      return {
+        ...state,
+        ...CLEARED,
+        session: {
+          ...state.session,
+          currentRoundId: null,
+          currentQuestionId: q.id,
+          usedQuestionIds: markUsed(state.session, q.id),
+          tiebreaker: { teamIds: tied.map((t) => t.id) },
+        },
+        view: "tiebreaker",
+        activeQuestionId: q.id,
+      };
+    }
+
+    case "START_TIEBREAKER_TIMER": {
+      if (!state.session || !state.activeQuestionId || state.awarded) return state;
+      const raw = state.session.settings.tiebreakerSeconds;
+      const seconds = raw && raw > 10 ? raw : 60;
+      return { ...state, timer: startTimer(seconds) };
+    }
+
+    case "TOGGLE_TIEBREAKER_TEAM": {
+      if (state.awarded) return state;
+      const has = state.tiebreakerCorrect.includes(action.teamId);
+      return {
+        ...state,
+        tiebreakerCorrect: has
+          ? state.tiebreakerCorrect.filter((id) => id !== action.teamId)
+          : [...state.tiebreakerCorrect, action.teamId],
+      };
+    }
+
+    case "AWARD_TIEBREAKER": {
+      if (!state.session || state.awarded) return state;
+      const amount = state.session.settings.tiebreakerPoints;
+      let teams = state.session.teams;
+      for (const id of state.tiebreakerCorrect) {
+        teams = award(teams, id, amount);
+      }
+      return {
+        ...state,
+        session: { ...state.session, teams },
+        lastAward: state.tiebreakerCorrect.map((teamId) => ({ teamId, amount })),
+        revealed: true,
+        awarded: true,
+        timer: IDLE_TIMER,
+      };
+    }
+
+    case "NEXT_TIEBREAKER_QUESTION": {
+      if (!state.session || !state.content || !state.session.tiebreaker) return state;
+      const q = nextTiebreakerQuestion(state.content, state.session);
+      if (!q) return state;
+      return {
+        ...state,
+        session: {
+          ...state.session,
+          currentQuestionId: q.id,
+          usedQuestionIds: markUsed(state.session, q.id),
+        },
+        activeQuestionId: q.id,
+        revealed: false,
+        tiebreakerCorrect: [],
+        awarded: false,
+        lastAward: null,
+        timer: IDLE_TIMER,
+      };
+    }
+
+    case "FINISH_TIEBREAKER": {
+      if (!state.session) return state;
+      return {
+        ...state,
+        session: {
+          ...state.session,
+          currentQuestionId: null,
+          tiebreaker: null,
+        },
+        view: "home",
+        ...CLEARED,
+      };
+    }
+
     /* ---- score admin ---- */
     case "ADJUST_SCORE": {
       if (!state.session) return state;
@@ -1099,7 +1241,7 @@ function scoresOf(session: SessionState): LiveScore[] {
 
 function roundsSummaryOf(content: GameContent, session: SessionState): LiveRoundSummary[] {
   const used = new Set(session.usedQuestionIds);
-  const rounds = content.rounds.map((r) => ({
+  const rounds: LiveRoundSummary[] = content.rounds.map((r) => ({
     id: r.id,
     order: r.order,
     name: r.name,
@@ -1117,7 +1259,8 @@ function roundsSummaryOf(content: GameContent, session: SessionState): LiveRound
     id: "rapid-fire",
     order: rounds.length + 1,
     name: "Rapid Fire",
-    description: "Lightning round — answer as many as you can before time runs out!",
+    description:
+      "Lightning round — answer as many as you can before time runs out! The questions are selected from a pool of Bible, General Knowledge, India, Current Affairs, & Mar Thoma Church.",
     type: "rapid_fire",
     totalQuestions: rapidFire.length,
     remainingQuestions: rapidFire.filter((q) => !used.has(q.id)).length,
@@ -1308,6 +1451,37 @@ export function buildLive(state: HostState): LiveDisplay | null {
       };
     }
 
+    case "tiebreaker": {
+      if (!q || !session.tiebreaker) return { ...base, screen: "scoreboard" };
+      const tiedTeams = session.tiebreaker.teamIds
+        .map((id) => session.teams.find((t) => t.id === id))
+        .filter((t): t is SessionTeam => !!t);
+      const screen = state.revealed ? "answer" : "question";
+      const resolved = state.awarded && state.tiebreakerCorrect.length === 1;
+      const winner = resolved
+        ? tiedTeams.find((t) => t.id === state.tiebreakerCorrect[0])
+        : null;
+      return {
+        ...base,
+        screen,
+        roundId: null,
+        roundName: "Sudden-Death Tiebreaker",
+        roundDescription:
+          "Whiteboards up — 60 seconds, then everyone reveals at once.",
+        roundOrder: null,
+        questionId: q.id,
+        questionNumber: null,
+        question: q.question,
+        answer: state.revealed ? q.answer : null,
+        imageUrl: q.imageUrl ?? null,
+        showAnswer: state.revealed,
+        message: winner
+          ? `🏆 ${winner.name} wins the tiebreaker!`
+          : `🔥 Tiebreaker: ${tiedTeams.map((t) => t.name).join(" vs ")}`,
+        board: null,
+      };
+    }
+
     case "rapidfire": {
       if (session.rapidReview) {
         const rv = session.rapidReview;
@@ -1397,6 +1571,7 @@ export function buildHostMirror(state: HostState): HostMirror {
     stealOrder: state.stealOrder,
     stealIndex: state.stealIndex,
     pictureCorrect: state.pictureCorrect,
+    tiebreakerCorrect: state.tiebreakerCorrect,
     awarded: state.awarded,
     lastAward: state.lastAward,
     rapid: state.rapid,
