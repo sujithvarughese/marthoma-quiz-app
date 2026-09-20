@@ -303,8 +303,7 @@ export type Action =
   | { type: "RAPID_SELECT_GROUP"; groupKey: string } // host picks a lettered group for the up-next team
   | { type: "RAPID_BEGIN_TURN" } // host presses Start on the "get ready" intro
   | { type: "RAPID_RECORD_ANSWER"; questionId: string; text: string } // editable for any of the 5 questions, any time
-  | { type: "RAPID_SET_CURRENT_QUESTION"; index: number } // host clicks a question row to highlight it as current — never fired by typing an answer
-  | { type: "RAPID_MARK_QUESTION"; questionId: string; status: "answered" | "skipped" } // marking the current question auto-advances; skips cycle back around
+  | { type: "RAPID_MARK_QUESTION"; questionId: string; status: "answered" | "skipped" } // marking the current question auto-advances; skips cycle back around — the only way currentIndex (and the projector's question) ever changes
   | { type: "RAPID_FINISH" } // host ends the current team's turn early (e.g. time's up)
   | { type: "EXIT_RAPIDFIRE" }
   // rapid fire — review phase (after every team has played)
@@ -1093,16 +1092,6 @@ function reducer(state: HostState, action: Action): HostState {
           answers: { ...rf.answers, [action.questionId]: action.text },
         },
       };
-    }
-
-    case "RAPID_SET_CURRENT_QUESTION": {
-      const rf = state.rapid;
-      if (!rf || rf.finished) return state;
-      const index = Math.max(
-        0,
-        Math.min(rf.questionIds.length - 1, action.index),
-      );
-      return { ...state, rapid: { ...rf, currentIndex: index } };
     }
 
     case "RAPID_MARK_QUESTION": {

@@ -394,10 +394,7 @@ export function RapidFire() {
           return (
             <div
               key={qid}
-              onClick={() =>
-                dispatch({ type: "RAPID_SET_CURRENT_QUESTION", index: i })
-              }
-              className={`rapid-question-row panel flex cursor-pointer flex-col gap-3 p-5 transition-all ${
+              className={`rapid-question-row panel flex flex-col gap-3 p-5 transition-all ${
                 isCurrent
                   ? "border-2 border-amber-400 bg-amber-400/10 shadow-[0_0_30px_rgba(251,191,36,0.25)]"
                   : "border border-white/10 opacity-70"
@@ -424,10 +421,7 @@ export function RapidFire() {
                   </p>
                 </div>
 
-                <div
-                  className="flex flex-shrink-0 items-center gap-2"
-                  onClick={(e) => e.stopPropagation()}
-                >
+                <div className="flex flex-shrink-0 items-center gap-2">
                   {status === "answered" && (
                     <span className="rounded-full bg-emerald-500/20 px-4 py-1.5 text-sm font-black text-emerald-300">
                       ✓ Answered
@@ -472,14 +466,12 @@ export function RapidFire() {
               {/* Host-only editable transcript box — hidden on the
                   read-only /speaker mirror (see .rapid-answer-box in
                   globals.css), which just shows the question clearly
-                  instead of a control it can't use. Typing here never
-                  touches currentIndex: the host can record any team's
-                  answer to any of the 5 questions independent of whichever
-                  one is currently live on the projector. */}
-              <div
-                className="rapid-answer-box"
-                onClick={(e) => e.stopPropagation()}
-              >
+                  instead of a control it can't use. Every box stays open
+                  and editable at all times, for any of the 5 questions,
+                  completely independent of currentIndex — typing here can
+                  never change what's live on the projector. Only pressing
+                  Answered/Skip (RAPID_MARK_QUESTION) moves currentIndex. */}
+              <div className="rapid-answer-box">
                 <input
                   type="text"
                   aria-label={`Team's answer for question ${i + 1}`}
