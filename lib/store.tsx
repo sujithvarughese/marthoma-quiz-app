@@ -303,7 +303,7 @@ export type Action =
   | { type: "RAPID_SELECT_GROUP"; groupKey: string } // host picks a lettered group for the up-next team
   | { type: "RAPID_BEGIN_TURN" } // host presses Start on the "get ready" intro
   | { type: "RAPID_RECORD_ANSWER"; questionId: string; text: string } // editable for any of the 5 questions, any time
-  | { type: "RAPID_SET_CURRENT_QUESTION"; index: number } // host clicks/focuses a question (or "Next") to highlight it as current
+  | { type: "RAPID_SET_CURRENT_QUESTION"; index: number } // host clicks a question row to highlight it as current — never fired by typing an answer
   | { type: "RAPID_MARK_QUESTION"; questionId: string; status: "answered" | "skipped" } // marking the current question auto-advances; skips cycle back around
   | { type: "RAPID_FINISH" } // host ends the current team's turn early (e.g. time's up)
   | { type: "EXIT_RAPIDFIRE" }

@@ -472,7 +472,10 @@ export function RapidFire() {
               {/* Host-only editable transcript box — hidden on the
                   read-only /speaker mirror (see .rapid-answer-box in
                   globals.css), which just shows the question clearly
-                  instead of a control it can't use. */}
+                  instead of a control it can't use. Typing here never
+                  touches currentIndex: the host can record any team's
+                  answer to any of the 5 questions independent of whichever
+                  one is currently live on the projector. */}
               <div
                 className="rapid-answer-box"
                 onClick={(e) => e.stopPropagation()}
@@ -481,9 +484,6 @@ export function RapidFire() {
                   type="text"
                   aria-label={`Team's answer for question ${i + 1}`}
                   value={answerText}
-                  onFocus={() =>
-                    dispatch({ type: "RAPID_SET_CURRENT_QUESTION", index: i })
-                  }
                   onChange={(e) =>
                     dispatch({
                       type: "RAPID_RECORD_ANSWER",

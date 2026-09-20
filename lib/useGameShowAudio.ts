@@ -34,7 +34,10 @@ export function useGameShowAudio(live: LiveDisplay | null) {
 
   // Dramatic sting on a genuinely fresh round/Rapid Fire start — tracked by
   // (screen, roundId) so re-visiting the same round's board between
-  // questions never re-triggers it.
+  // questions never re-triggers it. The ref is deliberately never reset on
+  // other screens: it only changes when a *different* key shows up, so a
+  // whole cycle of board → question → board (picking the round's next
+  // question) never replays the sting.
   const lastRoundKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (!unlocked || !live) return;
@@ -47,12 +50,24 @@ export function useGameShowAudio(live: LiveDisplay | null) {
     if (key && lastRoundKeyRef.current !== key) {
       lastRoundKeyRef.current = key;
       audio.playRoundStart();
-    } else if (!key) {
-      // Leaving both — the next board/rapid-fire entry should count as fresh.
-      lastRoundKeyRef.current = null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unlocked, live?.screen, live?.roundId]);
+
+  // A very soft tap when a question tile is selected — tracked by questionId
+  // so re-renders of the same question never repeat it.
+  const lastQuestionIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!unlocked || !live) return;
+    const qid = live.screen === "question" ? live.questionId : null;
+    if (qid && lastQuestionIdRef.current !== qid) {
+      lastQuestionIdRef.current = qid;
+      audio.playTileSelect();
+    } else if (!qid) {
+      lastQuestionIdRef.current = null;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unlocked, live?.screen, live?.questionId]);
 
   // Thinking-music loop follows whether a countdown is currently running.
   const tensionActiveRef = useRef(false);

@@ -106,6 +106,27 @@ export function playRoundStart(): void {
   });
 }
 
+/** A very soft, understated tap for picking a question tile off the board —
+ * deliberately much quieter/shorter than the round-start sting, just enough
+ * to confirm the click without drawing attention to itself. */
+export function playTileSelect(): void {
+  const c = getCtx();
+  const now = c.currentTime;
+
+  const g = c.createGain();
+  g.gain.setValueAtTime(0, now);
+  g.gain.linearRampToValueAtTime(0.05, now + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0004, now + 0.16);
+  g.connect(masterGain!);
+
+  const o = c.createOscillator();
+  o.type = "sine";
+  o.frequency.value = 660;
+  o.connect(g);
+  o.start(now);
+  o.stop(now + 0.18);
+}
+
 /** A bright, cheerful two-note ascending "ding" (plus a quiet shimmer
  * overtone for a bell-like quality) — the correct-answer cue. */
 export function playCorrectDing(): void {
