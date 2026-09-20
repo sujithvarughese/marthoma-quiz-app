@@ -262,6 +262,28 @@ export function currentFocusId(
   return null;
 }
 
+/**
+ * The banner phrase shown on the projector's "choose a round" hub —
+ * follows currentFocusId() through the same fixed sequence (rounds →
+ * Rapid Fire → Tiebreaker → done) so it always reads as true to wherever
+ * the game actually is, instead of a static "Let's Begin!" the whole night.
+ */
+function homeMessage(content: GameContent, session: SessionState): string {
+  const focus = currentFocusId(content, session);
+  if (focus === null) return "Time to Crown a Champion!";
+  if (focus === "tiebreaker") return "Tiebreaker Time!";
+  if (focus === "rapid-fire") return "Get Ready for Rapid Fire!";
+
+  const used = new Set(session.usedQuestionIds);
+  const completedRounds = content.rounds.filter((r) =>
+    r.questionIds.every((id) => used.has(id)),
+  ).length;
+
+  if (completedRounds === 0) return "Let's Begin!";
+  if (completedRounds === content.rounds.length - 1) return "Final Round!";
+  return "Let's Keep Going!";
+}
+
 /* ------------------------------------------------------------------ *
  * Actions
  * ------------------------------------------------------------------ */
@@ -1529,7 +1551,7 @@ export function buildLive(state: HostState): LiveDisplay | null {
         showAnswer: false,
         activeTeamId: null,
         activeTeamName: null,
-        message: "Let's Begin!",
+        message: homeMessage(content, session),
         timer: IDLE_TIMER,
       };
 
