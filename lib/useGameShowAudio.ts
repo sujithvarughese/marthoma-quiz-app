@@ -4,31 +4,21 @@ import { useEffect, useRef, useState } from "react";
 import type { LiveDisplay } from "./live";
 import * as audio from "./audio";
 
-const MUTE_KEY = "church-quiz-app:displayMuted";
-
 /**
- * Wires the display's live doc to the synthesized game-show audio: a very
- * quiet background pad throughout, a soft suspenseful pluck pattern while
- * any countdown timer is running, a buzzer the instant it hits zero, and a
- * dramatic sting when a new round (or Rapid Fire) begins.
+ * Wires the display's live doc to the synthesized game-show audio: an
+ * upbeat-but-quiet background loop throughout, a "Final Jeopardy"-style
+ * thinking melody while any countdown timer is running, a buzzer the
+ * instant it hits zero, a dramatic sting when a new round (or Rapid Fire)
+ * begins, and a ding/wrong cue whenever the host grades an answer.
  *
  * Autoplay policies mean nothing can play until a user gesture unlocks the
  * AudioContext — callers should show an "Enable Sound" control while
- * `unlocked` is false and call `enable()` from its onClick.
+ * `unlocked` is false and call `enable()` from its onClick. Muting itself
+ * is host-controlled (`live.audioMuted`), not a local display setting.
  */
 export function useGameShowAudio(live: LiveDisplay | null) {
   const [unlocked, setUnlocked] = useState(false);
-  // Lazy initializer (not an effect) so reading localStorage — impure and
-  // SSR-unsafe — runs at most once, on mount, per React's documented escape
-  // hatch for one-time impure setup.
-  const [muted, setMuted] = useState(() => {
-    if (typeof window === "undefined") return false;
-    try {
-      return window.localStorage.getItem(MUTE_KEY) === "1";
-    } catch {
-      return false;
-    }
-  });
+  const muted = live?.audioMuted ?? false;
 
   useEffect(() => {
     if (unlocked) audio.setMuted(muted);
@@ -39,18 +29,6 @@ export function useGameShowAudio(live: LiveDisplay | null) {
       setUnlocked(true);
       audio.setMuted(muted);
       audio.startBackgroundMusic();
-    });
-  };
-
-  const toggleMute = () => {
-    setMuted((m) => {
-      const next = !m;
-      try {
-        window.localStorage.setItem(MUTE_KEY, next ? "1" : "0");
-      } catch {
-        // Ignore — private browsing / storage blocked.
-      }
-      return next;
     });
   };
 
@@ -110,5 +88,17 @@ export function useGameShowAudio(live: LiveDisplay | null) {
     return () => window.clearInterval(id);
   }, [unlocked, live?.timer?.endsAt]);
 
-  return { unlocked, muted, enable, toggleMute };
+  // Ding on a correct answer, buzz-blip on a wrong one — one-shot per nonce
+  // so a re-delivered live doc (same content, new snapshot) never replays it.
+  const lastCueNonceRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!unlocked || !live?.answerCue) return;
+    const { correct, nonce } = live.answerCue;
+    if (lastCueNonceRef.current === nonce) return;
+    lastCueNonceRef.current = nonce;
+    if (correct) audio.playCorrectDing();
+    else audio.playWrongAnswer();
+  }, [unlocked, live?.answerCue]);
+
+  return { unlocked, enable };
 }

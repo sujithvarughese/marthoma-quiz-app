@@ -192,9 +192,12 @@ function DisplaySurface() {
 
   const currentLive =
     live ??
-    welcomeLive("Wisdom Across Generations", "Mar Thoma Church of South Florida");
+    welcomeLive(
+      "The Mar Thoma Ever Rolling Trophy Quiz 2026",
+      "Mar Thoma Church of South Florida",
+    );
 
-  const { unlocked, muted, enable, toggleMute } = useGameShowAudio(currentLive);
+  const { unlocked, enable } = useGameShowAudio(currentLive);
 
   const showScoreboardDock =
     currentLive.screen !== "welcome" &&
@@ -245,24 +248,14 @@ function DisplaySurface() {
       )}
 
       {/* Audio needs a user gesture before it's allowed to play — whoever
-          sets up the projector taps this once and it disappears. */}
+          sets up the projector taps this once and it disappears. Muting
+          itself is controlled from the host screen, not here. */}
       {connected && !unlocked && (
         <button
           onClick={enable}
           className="animate-pulse fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full border border-amber-400/60 bg-slate-950/90 px-5 py-3 text-lg font-bold text-amber-200 shadow-[0_0_25px_rgba(251,191,36,0.35)] backdrop-blur-md"
         >
           🔊 Tap to enable sound
-        </button>
-      )}
-
-      {connected && unlocked && (
-        <button
-          onClick={toggleMute}
-          aria-label={muted ? "Unmute" : "Mute"}
-          title={muted ? "Unmute" : "Mute"}
-          className="fixed bottom-4 right-4 z-50 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-slate-950/70 text-lg text-slate-300 opacity-40 backdrop-blur-md transition-opacity hover:opacity-100"
-        >
-          {muted ? "🔇" : "🔈"}
         </button>
       )}
     </div>
@@ -349,13 +342,14 @@ function ActiveBanner({ live }: { live: LiveDisplay }) {
 
 /**
  * welcomeLive() always formats its message as "<subtitle> — <name>" (see
- * lib/live.ts) — split it back into a small eyebrow line and the big
- * headline rather than rendering the whole thing as one giant sentence.
+ * lib/live.ts) — split it back into a small "presented by" eyebrow line and
+ * the big event-title headline rather than rendering the whole thing as one
+ * giant sentence.
  */
 function splitWelcomeMessage(message: string | null): [string, string] {
   const fallback: [string, string] = [
-    "Mar Thoma Church Quiz",
-    "Wisdom Across Generations",
+    "Mar Thoma Church of South Florida",
+    "The Mar Thoma Ever Rolling Trophy Quiz 2026",
   ];
   if (!message) return fallback;
   const parts = message.split(" — ");
@@ -365,34 +359,46 @@ function splitWelcomeMessage(message: string | null): [string, string] {
 /**
  * Welcome / Standby Screen — the projector sits here for minutes at a time
  * before the host starts the game, so the crest gets slow ambient motion
- * (a rotating light sweep, a soft breathing glow, a gentle float) and the
- * headline shimmers, to keep the audience's eye occupied while they wait.
+ * (a rotating light sweep, a soft breathing glow, a gentle float), the
+ * "presents" line and headline rise in on a staggered entrance, and the
+ * headline itself shimmers, to keep the audience's eye occupied while they
+ * wait without ever feeling busy or distracting.
  */
 function WelcomeScreen({ live }: { live: LiveDisplay }) {
-  const [eyebrow, headline] = splitWelcomeMessage(live.message);
+  const [presenter, headline] = splitWelcomeMessage(live.message);
 
   return (
     <Centered>
-      <div className="flex flex-col items-center gap-8">
-        <div className="relative flex items-center justify-center py-4">
+      <div className="flex flex-col items-center gap-6 px-6 text-center">
+        <div className="relative flex items-center justify-center py-2">
           <div className="animate-spotlight-rotate absolute h-72 w-72 rounded-full bg-radial from-amber-400/30 via-amber-500/5 to-transparent blur-2xl sm:h-96 sm:w-96" />
           <div className="animate-gold-pulse absolute h-48 w-48 rounded-full sm:h-60 sm:w-60" />
           <img
             src="/marthomalogo.png"
             alt="Mar Thoma Church crest — Lighted to Lighten"
-            className="animate-logo-float relative h-40 w-auto mix-blend-screen drop-shadow-[0_10px_40px_rgba(251,191,36,0.35)] sm:h-52"
+            className="animate-logo-float relative h-36 w-auto mix-blend-screen drop-shadow-[0_10px_40px_rgba(251,191,36,0.35)] sm:h-44"
           />
         </div>
 
-        <div className="inline-flex items-center gap-3 rounded-full border border-amber-400/40 bg-amber-400/10 px-8 py-3 text-2xl font-bold uppercase tracking-widest text-amber-300 shadow-[0_0_30px_rgba(251,191,36,0.2)]">
-          ✝️ {eyebrow}
+        <div className="animate-intro-rise flex flex-col items-center gap-4">
+          <div className="inline-flex items-center gap-3 rounded-full border border-amber-400/40 bg-amber-400/10 px-6 py-2.5 text-base font-bold uppercase tracking-[0.2em] text-amber-300 shadow-[0_0_30px_rgba(251,191,36,0.2)] sm:px-8 sm:py-3 sm:text-xl">
+            ✝️ {presenter} Presents
+          </div>
+          <span className="animate-divider-draw h-[3px] w-40 rounded-full bg-gradient-to-r from-transparent via-amber-300 to-transparent sm:w-56" />
         </div>
 
-        <h1 className="animate-shimmer-text bg-gradient-to-r from-amber-200 via-white to-amber-200 bg-clip-text text-7xl font-black tracking-tight text-transparent sm:text-8xl">
-          {headline}
-        </h1>
+        <div className="animate-intro-rise [animation-delay:200ms]">
+          <h1 className="text-balance max-w-5xl text-4xl leading-tight font-black tracking-tight sm:text-6xl lg:text-7xl">
+            <span className="animate-trophy-bob mr-2 inline-block sm:mr-4">
+              🏆
+            </span>
+            <span className="animate-shimmer-text bg-gradient-to-r from-amber-200 via-white to-amber-200 bg-clip-text text-transparent">
+              {headline}
+            </span>
+          </h1>
+        </div>
 
-        <p className="mt-4 flex items-center gap-3 text-3xl font-semibold text-slate-300">
+        <p className="animate-intro-rise mt-2 flex items-center gap-3 text-2xl font-semibold text-slate-300 [animation-delay:400ms] sm:text-3xl">
           Please wait for the host to begin the game
           <span className="inline-flex gap-1.5" aria-hidden="true">
             <span className="animate-wait-dot h-3 w-3 rounded-full bg-amber-300 [animation-delay:0ms]" />

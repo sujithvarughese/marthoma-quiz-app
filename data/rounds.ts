@@ -348,7 +348,7 @@ export const rounds: Round[] = [
             "In which land was Moses buried? (മോശെയെ അടക്കം ചെയ്തത് ഏത് ദേശത്തായിരുന്നു?)",
         answer: "Moab / മോവാബ്",
         funFact:
-            "Numbers 11:26–29 says Eldad and Medad remained in the camp yet received the Spirit and began to prophesy.",
+            "Present day Jorden-Deuteronomy 34:5-6",
         used: false,
       },
       {
@@ -437,7 +437,7 @@ export const rounds: Round[] = [
       {
         id: "cw-3",
         question:
-            "Which Christian denomination developed through the ministry of John Wesley?",
+            "Which Christian denomination was founded through the ministry of John Wesley?",
         answer: "Methodism / The Methodist Church",
         funFact:
             "John Wesley and his brother Charles were central figures in the eighteenth-century Methodist revival in England.",

@@ -28,16 +28,16 @@ export const dynamic = "force-dynamic";
  * header (same protection as the write routes).
  */
 
-const EVENT_NAME = "Wisdom Across Generations";
+const EVENT_NAME = "The Mar Thoma Ever Rolling Trophy Quiz 2026";
 const EVENT_SUBTITLE = "Mar Thoma Church of South Florida";
 
 const DEFAULT_TEAMS = [
   "Sevika Sangham",
-  "Yuvajana Sakhyam",
+  "Youth Fellowship",
   "Sunday School",
-  "Edavaka Mission",
+  "Senior Citizen",
   "Choir",
-  "Young Family Fellowship",
+  "YFF",
 ];
 
 function slugify(name: string): string {

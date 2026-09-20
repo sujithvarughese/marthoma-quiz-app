@@ -151,6 +151,16 @@ export interface LiveDisplay {
   /** How-to-play guide page for the "rules" screen (null elsewhere). */
   rules: LiveRules | null;
 
+  /** Host-controlled mute for the projector's game-show audio — the display
+   * itself only gates the initial browser autoplay unlock; the host decides
+   * whether sound plays at all. */
+  audioMuted: boolean;
+  /** One-shot cue for the projector to play a "correct"/"wrong" sound.
+   * `nonce` increments every time the host grades an answer, so the display
+   * can detect a fresh cue (vs. a re-delivery of the same live doc) by
+   * comparing against the last nonce it acted on. */
+  answerCue: { correct: boolean; nonce: number } | null;
+
   /** Epoch ms of the last publish, for staleness debugging. */
   updatedAt: number;
 }
@@ -184,6 +194,8 @@ export function welcomeLive(name: string, subtitle: string): LiveDisplay {
     rapidFire: null,
     rapidReview: null,
     rules: null,
+    audioMuted: false,
+    answerCue: null,
     updatedAt: 0,
   };
 }

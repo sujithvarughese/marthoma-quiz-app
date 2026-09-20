@@ -41,6 +41,9 @@ export interface GameSettings {
 
   allowSteals: boolean;
   rotateStartingTeam: boolean;
+
+  /** Host-controlled mute for the projector's game-show audio. */
+  audioMuted: boolean;
 }
 
 /**
@@ -81,6 +84,8 @@ export const DEFAULT_SETTINGS: GameSettings = {
 
   allowSteals: true,
   rotateStartingTeam: true,
+
+  audioMuted: false,
 };
 
 /**

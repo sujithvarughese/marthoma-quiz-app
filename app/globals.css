@@ -576,6 +576,47 @@ body {
   }
 }
 
+/* Staggered entrance for the "presents" line / headline / wait text —
+   each rises and fades in once, `both` holding the pre-start (opacity 0)
+   state through its animation-delay and the end state after it finishes. */
+@keyframes introRise {
+  0% {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* A thin gold rule that draws in under the "presents" line, cinematic
+   marquee-style, once the eyebrow has risen into place. */
+@keyframes dividerDraw {
+  0% {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+/* A slow, gentle tilt on the trophy emoji next to the headline — just
+   enough motion to catch the eye without competing with the shimmer. */
+@keyframes trophyBob {
+  0%, 100% {
+    transform: rotate(-8deg) translateY(0);
+  }
+  50% {
+    transform: rotate(8deg) translateY(-4px);
+  }
+}
+
 .animate-logo-float {
   animation: logoFloat 6s ease-in-out infinite;
 }
@@ -591,6 +632,20 @@ body {
 
 .animate-wait-dot {
   animation: waitDotPulse 1.4s ease-in-out infinite;
+}
+
+.animate-intro-rise {
+  animation: introRise 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-divider-draw {
+  animation: dividerDraw 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 300ms;
+}
+
+.animate-trophy-bob {
+  animation: trophyBob 2.4s ease-in-out infinite;
+  animation-delay: 1s;
 }
 
 /*

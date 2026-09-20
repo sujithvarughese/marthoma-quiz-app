@@ -34,6 +34,27 @@ export function TopBar() {
 
       <div className="flex items-center gap-3">
         <SyncIndicator />
+        {state.session && (
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label={
+              state.session.settings.audioMuted
+                ? "Unmute projector sound"
+                : "Mute projector sound"
+            }
+            title={
+              state.session.settings.audioMuted
+                ? "Projector sound is muted — click to unmute"
+                : "Projector sound is on — click to mute"
+            }
+            onClick={() => dispatch({ type: "TOGGLE_AUDIO_MUTED" })}
+          >
+            <span className="text-2xl leading-none">
+              {state.session.settings.audioMuted ? "🔇" : "🔊"}
+            </span>
+          </Button>
+        )}
         {state.view !== "home" && (
           <Button
             variant="ghost"

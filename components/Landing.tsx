@@ -30,7 +30,7 @@ export function Landing() {
           </div>
 
           <h1 className="mt-3 text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl">
-            {session?.name ?? "Wisdom Across Generations"}
+            {session?.name ?? "The Mar Thoma Ever Rolling Trophy Quiz 2026"}
           </h1>
 
           <div className="mx-auto mt-3 flex flex-wrap items-center justify-center gap-2 text-sm text-slate-300">

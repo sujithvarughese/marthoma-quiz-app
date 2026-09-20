@@ -338,7 +338,7 @@ export const rapidFirePool: RapidFireGroup[] = [
       },
       {
         id: "g-3",
-        question: "What was the name of Priscilla's husband?",
+        question: "What was the name of Priscilla's husband who worked alongside Apostle Paul?",
         answer: "Aquila (അക്വിലാസ)",
         funFact:
             "Priscilla and Aquila were a married couple who worked alongside Paul and are mentioned several times in the New Testament.",

@@ -212,7 +212,7 @@ export function RapidFire() {
   const team = session.teams.find((t) => t.id === rapid.teamId);
   const teamName = team?.name ?? "Team";
   const answeredCount = rapid.questionIds.filter(
-    (id) => (rapid.answers[id]?.trim().length ?? 0) > 0,
+    (id) => rapid.questionStatus[id] === "answered",
   ).length;
 
   /* ---- Team finished their turn ---- */
@@ -320,8 +320,17 @@ export function RapidFire() {
    * at once (the host can jump ahead or back to fix any of them) — the
    * currentIndex one is just highlighted so whoever's reading questions
    * aloud (host or speaker) always knows which one is live right now. The
-   * display mirrors currentIndex, so nothing there needs to change. */
-  const atLastQuestion = rapid.currentIndex >= rapid.questionIds.length - 1;
+   * display mirrors currentIndex, so nothing there needs to change.
+   *
+   * Marking the current question answered or skipped (RAPID_MARK_QUESTION)
+   * auto-advances currentIndex to the next one that isn't answered yet —
+   * skipped questions are only revisited once every other question has had
+   * a turn, so they cycle back around in dealt order rather than being
+   * re-asked immediately. See nextPendingIndex in lib/store.tsx. */
+  const currentQid = rapid.questionIds[rapid.currentIndex];
+  const allAnswered = rapid.questionIds.every(
+    (id) => rapid.questionStatus[id] === "answered",
+  );
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -339,19 +348,40 @@ export function RapidFire() {
           label="Rapid fire"
           size="md"
         />
-        <Button
-          variant="amber"
-          size="md"
-          disabled={atLastQuestion}
-          onClick={() =>
-            dispatch({
-              type: "RAPID_SET_CURRENT_QUESTION",
-              index: rapid.currentIndex + 1,
-            })
-          }
-        >
-          Next Question →
-        </Button>
+        {allAnswered ? (
+          <p className="text-xl font-black text-emerald-300">
+            🎉 All questions answered!
+          </p>
+        ) : (
+          <div className="flex gap-3">
+            <Button
+              variant="success"
+              size="md"
+              onClick={() =>
+                dispatch({
+                  type: "RAPID_MARK_QUESTION",
+                  questionId: currentQid,
+                  status: "answered",
+                })
+              }
+            >
+              ✓ Answered → Next
+            </Button>
+            <Button
+              variant="ghost"
+              size="md"
+              onClick={() =>
+                dispatch({
+                  type: "RAPID_MARK_QUESTION",
+                  questionId: currentQid,
+                  status: "skipped",
+                })
+              }
+            >
+              ⏭ Skip → Next
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-3">
@@ -359,7 +389,7 @@ export function RapidFire() {
           const q = getQuestion(state, qid);
           const isCurrent = i === rapid.currentIndex;
           const answerText = rapid.answers[qid] ?? "";
-          const isAnswered = answerText.trim().length > 0;
+          const status = rapid.questionStatus[qid];
 
           return (
             <div
@@ -394,11 +424,49 @@ export function RapidFire() {
                   </p>
                 </div>
 
-                {isAnswered && (
-                  <span className="flex-shrink-0 rounded-full bg-emerald-500/20 px-4 py-1.5 text-sm font-black text-emerald-300">
-                    ✓ Answered
-                  </span>
-                )}
+                <div
+                  className="flex flex-shrink-0 items-center gap-2"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {status === "answered" && (
+                    <span className="rounded-full bg-emerald-500/20 px-4 py-1.5 text-sm font-black text-emerald-300">
+                      ✓ Answered
+                    </span>
+                  )}
+                  {status === "skipped" && (
+                    <span className="rounded-full bg-amber-500/20 px-4 py-1.5 text-sm font-black text-amber-300">
+                      ⏭ Skipped
+                    </span>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label={`Mark question ${i + 1} answered`}
+                    onClick={() =>
+                      dispatch({
+                        type: "RAPID_MARK_QUESTION",
+                        questionId: qid,
+                        status: "answered",
+                      })
+                    }
+                  >
+                    ✓
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label={`Mark question ${i + 1} skipped`}
+                    onClick={() =>
+                      dispatch({
+                        type: "RAPID_MARK_QUESTION",
+                        questionId: qid,
+                        status: "skipped",
+                      })
+                    }
+                  >
+                    ⏭
+                  </Button>
+                </div>
               </div>
 
               {/* Host-only editable transcript box — hidden on the

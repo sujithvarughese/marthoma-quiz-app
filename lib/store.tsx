@@ -78,6 +78,10 @@ interface RapidPlayState {
   /** Host-typed transcript of what the team said, keyed by question id —
    * editable for any question at any time, not just the current one. */
   answers: Record<string, string>;
+  /** Host's answered/skipped decision per question id — absent means still
+   * pending. See RAPID_MARK_QUESTION: skipped questions come back around
+   * (in dealt order) until every question is answered or time runs out. */
+  questionStatus: Record<string, "answered" | "skipped">;
   /** True once the host ends the turn. */
   finished: boolean;
   /** False on deal — shows a "get ready" intro until the host presses Start. */
@@ -104,6 +108,10 @@ export interface HostState {
   awarded: boolean; // points already awarded for current question
   /** The last points award(s) for the current question, so UNDO_QUESTION can retract them. */
   lastAward: { teamId: string; amount: number }[] | null;
+  /** One-shot cue for the projector to play a "correct"/"wrong" sound — see
+   * LiveDisplay.answerCue. Bumped by every grading decision (AWARD_CORRECT,
+   * STEAL_MISS, etc.), never read back except by nonce comparison. */
+  answerCue: { correct: boolean; nonce: number } | null;
 
   /** The single team currently mid-turn (not yet persisted — see note above). */
   rapid: RapidPlayState | null;
@@ -296,6 +304,7 @@ export type Action =
   | { type: "RAPID_BEGIN_TURN" } // host presses Start on the "get ready" intro
   | { type: "RAPID_RECORD_ANSWER"; questionId: string; text: string } // editable for any of the 5 questions, any time
   | { type: "RAPID_SET_CURRENT_QUESTION"; index: number } // host clicks/focuses a question (or "Next") to highlight it as current
+  | { type: "RAPID_MARK_QUESTION"; questionId: string; status: "answered" | "skipped" } // marking the current question auto-advances; skips cycle back around
   | { type: "RAPID_FINISH" } // host ends the current team's turn early (e.g. time's up)
   | { type: "EXIT_RAPIDFIRE" }
   // rapid fire — review phase (after every team has played)
@@ -317,7 +326,9 @@ export type Action =
   | { type: "CLOSE_RULES" }
   | { type: "RULES_NEXT" }
   | { type: "RULES_BACK" }
-  | { type: "RULES_GOTO"; page: number };
+  | { type: "RULES_GOTO"; page: number }
+
+  | { type: "TOGGLE_AUDIO_MUTED" }; // host controls whether the projector plays sound
 
 /* ------------------------------------------------------------------ *
  * Helpers
@@ -350,6 +361,27 @@ function startTimer(seconds: number): HostTimer {
     endsAt: Date.now() + seconds * 1000,
     durationSeconds: seconds,
   };
+}
+
+/**
+ * Where the rapid-fire cursor should land after marking `fromIndex`
+ * answered or skipped: the next question (in dealt order, wrapping around)
+ * that isn't already answered. Because the search wraps and only reaches
+ * `fromIndex` again last, a skipped question is revisited only once every
+ * other question has had a turn — so skips cycle back around in order
+ * instead of being asked again immediately. Returns null once everything
+ * is answered.
+ */
+function nextPendingIndex(
+  questionIds: string[],
+  status: Record<string, "answered" | "skipped">,
+  fromIndex: number,
+): number | null {
+  for (let step = 1; step <= questionIds.length; step++) {
+    const idx = (fromIndex + step) % questionIds.length;
+    if (status[questionIds[idx]] !== "answered") return idx;
+  }
+  return null;
 }
 
 /**
@@ -488,9 +520,15 @@ function makeInitialState(): HostState {
     timer: IDLE_TIMER,
     awarded: false,
     lastAward: null,
+    answerCue: null,
     rulesOpen: false,
     rulesPage: 0,
   };
+}
+
+/** Bumps the one-shot answer cue so the projector plays a fresh correct/wrong sound. */
+function cue(state: HostState, correct: boolean): HostState["answerCue"] {
+  return { correct, nonce: (state.answerCue?.nonce ?? 0) + 1 };
 }
 
 function reducer(state: HostState, action: Action): HostState {
@@ -798,6 +836,7 @@ function reducer(state: HostState, action: Action): HostState {
         lastAward: [{ teamId: team.id, amount }],
         revealed: true,
         awarded: true,
+        answerCue: cue(state, true),
         timer: IDLE_TIMER,
       };
     }
@@ -825,6 +864,7 @@ function reducer(state: HostState, action: Action): HostState {
           stealing: false,
           revealed: true,
           awarded: true,
+          answerCue: cue(state, false),
           timer: IDLE_TIMER,
         };
       }
@@ -833,6 +873,7 @@ function reducer(state: HostState, action: Action): HostState {
       return {
         ...state,
         stealIndex: state.stealIndex + 1,
+        answerCue: cue(state, false),
         timer: IDLE_TIMER,
       };
     }
@@ -859,6 +900,7 @@ function reducer(state: HostState, action: Action): HostState {
         stealing: false,
         revealed: true,
         awarded: true,
+        answerCue: cue(state, true),
         timer: IDLE_TIMER,
       };
     }
@@ -939,6 +981,7 @@ function reducer(state: HostState, action: Action): HostState {
         lastAward: state.pictureCorrect.map((teamId) => ({ teamId, amount })),
         revealed: true,
         awarded: true,
+        answerCue: cue(state, state.pictureCorrect.length > 0),
         timer: IDLE_TIMER,
       };
     }
@@ -1033,6 +1076,7 @@ function reducer(state: HostState, action: Action): HostState {
           questionIds: group.questionIds,
           currentIndex: 0,
           answers: {},
+          questionStatus: {},
           finished: false,
           started: false,
         },
@@ -1072,6 +1116,25 @@ function reducer(state: HostState, action: Action): HostState {
         Math.min(rf.questionIds.length - 1, action.index),
       );
       return { ...state, rapid: { ...rf, currentIndex: index } };
+    }
+
+    case "RAPID_MARK_QUESTION": {
+      const rf = state.rapid;
+      if (!rf || rf.finished) return state;
+      const idx = rf.questionIds.indexOf(action.questionId);
+      if (idx === -1) return state;
+      const questionStatus = {
+        ...rf.questionStatus,
+        [action.questionId]: action.status,
+      };
+      // Only auto-advance when marking whichever question is currently
+      // highlighted — correcting an earlier question's status shouldn't
+      // yank the host's focus away from where they actually are.
+      const currentIndex =
+        idx === rf.currentIndex
+          ? (nextPendingIndex(rf.questionIds, questionStatus, idx) ?? idx)
+          : rf.currentIndex;
+      return { ...state, rapid: { ...rf, questionStatus, currentIndex } };
     }
 
     case "RAPID_FINISH": {
@@ -1153,6 +1216,7 @@ function reducer(state: HostState, action: Action): HostState {
             ...session,
             rapidReview: { ...rv, questionIndex, graded },
           },
+          answerCue: cue(state, action.correct),
         };
       }
 
@@ -1170,6 +1234,7 @@ function reducer(state: HostState, action: Action): HostState {
             awarded: true,
           },
         },
+        answerCue: cue(state, action.correct),
       };
     }
 
@@ -1277,6 +1342,7 @@ function reducer(state: HostState, action: Action): HostState {
         lastAward: state.tiebreakerCorrect.map((teamId) => ({ teamId, amount })),
         revealed: true,
         awarded: true,
+        answerCue: cue(state, state.tiebreakerCorrect.length > 0),
         timer: IDLE_TIMER,
       };
     }
@@ -1345,6 +1411,20 @@ function reducer(state: HostState, action: Action): HostState {
     case "RULES_GOTO": {
       const total = buildRulesPages(state.session?.settings ?? DEFAULT_SETTINGS).length;
       return { ...state, rulesPage: Math.max(0, Math.min(total - 1, action.page)) };
+    }
+
+    case "TOGGLE_AUDIO_MUTED": {
+      if (!state.session) return state;
+      return {
+        ...state,
+        session: {
+          ...state.session,
+          settings: {
+            ...state.session.settings,
+            audioMuted: !state.session.settings.audioMuted,
+          },
+        },
+      };
     }
 
     default:
@@ -1421,6 +1501,8 @@ export function buildLive(state: HostState): LiveDisplay | null {
     rapidFire: null,
     rapidReview: null,
     rules: null,
+    audioMuted: session.settings.audioMuted,
+    answerCue: state.answerCue,
     updatedAt: Date.now(),
   };
 
@@ -1663,7 +1745,7 @@ export function buildLive(state: HostState): LiveDisplay | null {
       const team2 = session.teams.find((t) => t.id === rf.teamId);
       const cur = getQuestion(state, rf.questionIds[rf.currentIndex] ?? null);
       const answeredCount = rf.questionIds.filter(
-        (id) => (rf.answers[id]?.trim().length ?? 0) > 0,
+        (id) => rf.questionStatus[id] === "answered",
       ).length;
       return {
         ...base,

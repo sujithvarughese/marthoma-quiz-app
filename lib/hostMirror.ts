@@ -35,6 +35,9 @@ export interface HostMirrorRapid {
   /** Index into questionIds of whichever one is currently highlighted. */
   currentIndex: number;
   answers: Record<string, string>;
+  /** Host's answered/skipped decision per question id — absent means still
+   * pending (mirrors RapidPlayState.questionStatus). */
+  questionStatus: Record<string, "answered" | "skipped">;
   finished: boolean;
   /** True once the host has pressed Start on the "get ready" intro screen. */
   started: boolean;
@@ -83,6 +86,13 @@ function isStringRecord(v: unknown): v is Record<string, string> {
   return Object.values(v).every((val) => typeof val === "string");
 }
 
+function isQuestionStatusRecord(
+  v: unknown,
+): v is Record<string, "answered" | "skipped"> {
+  if (typeof v !== "object" || v === null) return false;
+  return Object.values(v).every((val) => val === "answered" || val === "skipped");
+}
+
 function isHostMirrorRapid(v: unknown): v is HostMirrorRapid {
   if (typeof v !== "object" || v === null) return false;
   const r = v as Record<string, unknown>;
@@ -91,6 +101,7 @@ function isHostMirrorRapid(v: unknown): v is HostMirrorRapid {
     isStringArray(r.questionIds) &&
     typeof r.currentIndex === "number" &&
     isStringRecord(r.answers) &&
+    isQuestionStatusRecord(r.questionStatus) &&
     typeof r.finished === "boolean" &&
     typeof r.started === "boolean"
   );
